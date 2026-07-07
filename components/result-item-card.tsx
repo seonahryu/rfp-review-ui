@@ -34,7 +34,7 @@ export function ResultItemCard({
   onUnconfirm: () => void
 }) {
   const [open, setOpen] = useState(false)
-  const [note, setNote] = useState(feedback?.note ?? "")
+  const [note, setNote] = useState(feedback?.comment ?? feedback?.note ?? "")
   const [pairs, setPairs] = useState<EvidencePair[]>(feedback?.corrected_evidence_pairs ?? [])
   const attention = item.user_action_required || item.needs_user_attention
   const status = normalizeStatus(item)
@@ -46,16 +46,22 @@ export function ResultItemCard({
   function addPair() {
     setPairs((p) => [...p, { page: "", text: "" }])
   }
+
   function updatePair(i: number, patch: Partial<EvidencePair>) {
     setPairs((p) => p.map((pair, idx) => (idx === i ? { ...pair, ...patch } : pair)))
   }
+
   function removePair(i: number) {
     setPairs((p) => p.filter((_, idx) => idx !== i))
   }
+
   function handleConfirm() {
     onConfirm({
-      note: note.trim() || undefined,
-      corrected_evidence_pairs: pairs.filter((p) => String(p.page).trim() || p.text.trim()),
+      status: "submitted",
+      comment: note.trim(),
+      note: note.trim(),
+      corrected_evidence_pairs: pairs.filter((p) => String(p.page ?? "").trim() || p.text.trim()),
+      resolved: true,
     })
     setOpen(false)
   }
@@ -74,7 +80,7 @@ export function ResultItemCard({
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
             <span className="font-mono text-xs text-muted-foreground">#{item.item_no}</span>
-            <h3 className="text-sm font-semibold text-foreground">{item.law_name}</h3>
+            <h3 className="text-sm font-semibold text-foreground">{item.law_name || "법제도명 없음"}</h3>
             <StatusBadge status={status} />
             {attention && !confirmed && <AttentionBadge />}
             {confirmed && (
@@ -83,24 +89,17 @@ export function ResultItemCard({
               </span>
             )}
           </div>
-          {item.reason && (
-            <p className="mt-2 line-clamp-2 text-sm text-muted-foreground">{item.reason}</p>
-          )}
+          {item.reason && <p className="mt-2 line-clamp-2 text-sm text-muted-foreground">{item.reason}</p>}
           <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
             {confidencePct !== null && (
               <span>
                 신뢰도{" "}
-                <span
-                  className={cn(
-                    "font-semibold",
-                    confidencePct < 70 ? "text-status-attention" : "text-foreground",
-                  )}
-                >
+                <span className={cn("font-semibold", confidencePct < 70 ? "text-status-attention" : "text-foreground")}>
                   {confidencePct}%
                 </span>
               </span>
             )}
-            {(item.evidence_pairs?.length || item.evidence_pages?.length) && (
+            {!!(item.evidence_pairs?.length || item.evidence_pages?.length) && (
               <span>근거 {item.evidence_pairs?.length ?? item.evidence_pages?.length}건</span>
             )}
             {item.warnings && item.warnings.length > 0 && (
@@ -138,17 +137,14 @@ export function ResultItemCard({
         <div className="border-t border-border p-4" onClick={(e) => e.stopPropagation()}>
           {item.recommendation && (
             <div className="mb-4 rounded-md bg-muted/50 p-3">
-              <p className="text-xs font-medium text-muted-foreground">참고 권고 (recommendation)</p>
+              <p className="text-xs font-medium text-muted-foreground">참고 권고(recommendation)</p>
               <p className="mt-1 text-sm text-foreground">{item.recommendation}</p>
-              <p className="mt-1 text-xs text-muted-foreground">
-                검토 과정에서 모델이 제안한 참고 권고입니다.
-              </p>
             </div>
           )}
 
           <Label className="text-sm font-medium">수정 의견</Label>
           <p className="mt-0.5 text-xs text-muted-foreground">
-            페이지나 근거가 잘못되었다고 판단되면 의견을 남기고, 모델 판단에 반문할 수 있습니다.
+            페이지나 근거가 잘못되었다고 판단하면 의견을 남기고 아래에 수정 근거를 추가하세요.
           </p>
           <Textarea
             value={note}
@@ -158,7 +154,7 @@ export function ResultItemCard({
           />
 
           <div className="mt-4 flex items-center justify-between">
-            <Label className="text-sm font-medium">근거 수정 (corrected_evidence_pairs)</Label>
+            <Label className="text-sm font-medium">근거 수정(corrected_evidence_pairs)</Label>
             <Button type="button" variant="outline" size="sm" onClick={addPair} className="gap-1">
               <Plus className="size-3.5" /> 근거 추가
             </Button>
@@ -168,7 +164,7 @@ export function ResultItemCard({
               {pairs.map((pair, i) => (
                 <div key={i} className="flex items-start gap-2">
                   <Input
-                    value={String(pair.page)}
+                    value={String(pair.page ?? "")}
                     onChange={(e) => updatePair(i, { page: e.target.value })}
                     placeholder="페이지"
                     className="w-24"
@@ -199,7 +195,7 @@ export function ResultItemCard({
               </Button>
             )}
             <Button type="button" size="sm" onClick={handleConfirm} className="gap-1.5">
-              <CheckCircle2 className="size-4" />이 항목 확인 완료
+              <CheckCircle2 className="size-4" /> 항목 확인 완료
             </Button>
           </div>
         </div>

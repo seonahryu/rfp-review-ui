@@ -1,5 +1,5 @@
 export type EvidencePair = {
-  page: number | string
+  page: number | string | null
   text: string
 }
 
@@ -11,16 +11,16 @@ export type CopyTexts = {
 
 export type ReviewItem = {
   item_no: number | string
-  law_name: string
+  law_name?: string | null
   review_result?: string
   normalized_result?: string
   final_status?: string
-  is_target?: boolean
+  is_target?: boolean | null
   confidence?: number
   reason?: string
   recommendation?: string
   evidence_pages?: (number | string)[]
-  evidence_text?: string
+  evidence_text?: string[] | string
   evidence_pairs?: EvidencePair[]
   warnings?: string[]
   verification?: unknown
@@ -33,13 +33,19 @@ export type ReviewItem = {
 }
 
 export type UserFeedback = {
+  status?: string
+  comment?: string
   note?: string
   corrected_evidence_pairs?: EvidencePair[]
+  resolved?: boolean
 }
 
 export type WorkflowGates = {
   can_generate_recommendations?: boolean
-  [key: string]: boolean | undefined
+  user_action_required_count?: number
+  recommendation_generation_mode?: string
+  next_endpoint?: string
+  [key: string]: boolean | number | string | string[] | undefined
 }
 
 export type ReviewOpinion = {
@@ -50,10 +56,12 @@ export type ReviewOpinion = {
 }
 
 export type ReviewResponse = {
-  document_id: string
+  document_id: string | number
+  document_name?: string
+  total_pages?: number
   parse_status?: string
   audit_score?: number
-  audit_warnings?: string[]
+  audit_warnings?: unknown[]
   parse_needs_user_confirmation?: boolean
   workflow_gates?: WorkflowGates
   review_result_column_text?: string
@@ -74,7 +82,6 @@ export type SearchResponse = {
   matches?: SearchHit[]
 }
 
-/** Normalized status categories used for badge coloring. */
 export type StatusKey = "compliant" | "noncompliant" | "revision" | "na" | "unknown"
 
 export function normalizeStatus(item: ReviewItem): StatusKey {
@@ -85,8 +92,8 @@ export function normalizeStatus(item: ReviewItem): StatusKey {
   if (item.is_target === false) return "na"
   if (/미준수|위반|non[-_ ]?compliant|noncompliant/i.test(raw)) return "noncompliant"
   if (/보완|수정|revision|needs?[-_ ]?revision/i.test(raw)) return "revision"
-  if (/준수|적합|compliant|pass/i.test(raw)) return "compliant"
   if (/해당\s?없음|해당없음|not[-_ ]?applicable|n\/?a/i.test(raw)) return "na"
+  if (/준수|적합|compliant|pass/i.test(raw)) return "compliant"
   return "unknown"
 }
 

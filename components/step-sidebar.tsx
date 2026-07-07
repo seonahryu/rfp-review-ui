@@ -15,10 +15,7 @@ export function StepSidebar({ current, maxReached, onNavigate }: StepSidebarProp
   const reachedIdx = stepIndexOf(maxReached)
 
   return (
-    <nav
-      aria-label="검토 단계"
-      className="flex w-64 shrink-0 flex-col border-r border-sidebar-border bg-sidebar"
-    >
+    <nav aria-label="검토 단계" className="flex w-64 shrink-0 flex-col border-r border-sidebar-border bg-sidebar">
       <div className="border-b border-sidebar-border px-5 py-4">
         <h1 className="text-sm font-semibold text-sidebar-foreground">RFP 법제도 검토 콘솔</h1>
         <p className="mt-0.5 text-xs text-muted-foreground">단계별 컨펌 기반 검토</p>
@@ -56,12 +53,7 @@ export function StepSidebar({ current, maxReached, onNavigate }: StepSidebarProp
                   {isDone ? <Check className="size-3.5" /> : isLocked ? <Lock className="size-3" /> : step.index}
                 </span>
                 <span className="min-w-0">
-                  <span
-                    className={cn(
-                      "block text-sm font-medium",
-                      isCurrent ? "text-sidebar-foreground" : "text-sidebar-foreground/90",
-                    )}
-                  >
+                  <span className={cn("block text-sm font-medium", isCurrent ? "text-sidebar-foreground" : "text-sidebar-foreground/90")}>
                     {step.title}
                   </span>
                   <span className="mt-0.5 block text-xs text-muted-foreground">{step.desc}</span>
@@ -72,9 +64,7 @@ export function StepSidebar({ current, maxReached, onNavigate }: StepSidebarProp
         })}
       </ol>
       <div className="border-t border-sidebar-border px-5 py-3">
-        <p className="text-xs leading-relaxed text-muted-foreground">
-          다음 단계로 진행하려면 각 단계의 컨펌이 필요합니다.
-        </p>
+        <p className="text-xs leading-relaxed text-muted-foreground">다음 단계로 진행하려면 각 단계의 확인 절차가 필요합니다.</p>
       </div>
     </nav>
   )

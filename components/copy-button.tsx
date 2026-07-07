@@ -15,14 +15,7 @@ type CopyButtonProps = {
   disabled?: boolean
 }
 
-export function CopyButton({
-  text,
-  label,
-  size = "sm",
-  variant = "outline",
-  className,
-  disabled,
-}: CopyButtonProps) {
+export function CopyButton({ text, label, size = "sm", variant = "outline", className, disabled }: CopyButtonProps) {
   const [copied, setCopied] = useState(false)
   const isEmpty = !text || !text.trim()
 
@@ -34,7 +27,7 @@ export function CopyButton({
     try {
       await navigator.clipboard.writeText(text as string)
       setCopied(true)
-      toast.success(`${label} 복사됨`)
+      toast.success(`${label} 완료`)
       setTimeout(() => setCopied(false), 1500)
     } catch {
       toast.error("복사에 실패했습니다.")

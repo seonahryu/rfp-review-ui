@@ -60,61 +60,51 @@ export function ItemDetailPanel({
             <div className="flex flex-wrap items-center gap-2">
               <span className="font-mono text-xs text-muted-foreground">#{item.item_no}</span>
               <StatusBadge status={normalizeStatus(item)} />
-              {(item.user_action_required || item.needs_user_attention) && !confirmed && (
-                <AttentionBadge />
-              )}
+              {(item.user_action_required || item.needs_user_attention) && !confirmed && <AttentionBadge />}
               {confirmed && (
                 <span className="inline-flex items-center gap-1 text-xs font-medium text-status-compliant">
                   <CheckCircle2 className="size-3.5" /> 확인됨
                 </span>
               )}
             </div>
-            <h4 className="mt-2 text-sm font-semibold text-foreground">{item.law_name}</h4>
+            <h4 className="mt-2 text-sm font-semibold text-foreground">{item.law_name || "법제도명 없음"}</h4>
 
-            <DetailRow label="판단결과 (normalized_result)">
-              {item.normalized_result || item.review_result || "-"}
-            </DetailRow>
+            <DetailRow label="판단결과">{item.normalized_result || item.review_result || "-"}</DetailRow>
             {confidencePct !== null && (
-              <DetailRow label="신뢰도 (confidence)">
+              <DetailRow label="신뢰도">
                 <span className={cn(confidencePct < 70 && "text-status-attention font-semibold")}>
                   {confidencePct}%
                 </span>
               </DetailRow>
             )}
-            {item.reason && <DetailRow label="사유 (reason)">{item.reason}</DetailRow>}
-            {item.recommendation && (
-              <DetailRow label="참고 권고 (recommendation)">{item.recommendation}</DetailRow>
-            )}
-            {item.compliance_content && (
-              <DetailRow label="권고내용 (compliance_content)">{item.compliance_content}</DetailRow>
-            )}
+            {item.reason && <DetailRow label="사유">{item.reason}</DetailRow>}
+            {item.recommendation && <DetailRow label="참고 권고">{item.recommendation}</DetailRow>}
+            {item.compliance_content && <DetailRow label="권고내용">{item.compliance_content}</DetailRow>}
 
             {(item.evidence_pairs?.length ?? 0) > 0 ? (
               <div className="mt-4">
-                <p className="text-xs font-medium text-muted-foreground">근거 (evidence_pairs)</p>
+                <p className="text-xs font-medium text-muted-foreground">근거</p>
                 <ul className="mt-2 space-y-2">
                   {item.evidence_pairs!.map((p, i) => (
                     <li key={i} className="rounded-md border border-border bg-muted/40 p-2 text-sm">
-                      <span className="font-semibold text-primary">p.{p.page}</span>
+                      <span className="font-semibold text-primary">p.{p.page ?? "-"}</span>
                       <span className="text-foreground">: {p.text}</span>
                     </li>
                   ))}
                 </ul>
               </div>
             ) : item.evidence_text ? (
-              <DetailRow label="근거 (evidence_text)">
+              <DetailRow label="근거">
                 {item.evidence_pages && item.evidence_pages.length > 0 && (
-                  <span className="mr-1 font-semibold text-primary">
-                    p.{item.evidence_pages.join(", ")}
-                  </span>
+                  <span className="mr-1 font-semibold text-primary">p.{item.evidence_pages.join(", ")}</span>
                 )}
-                {item.evidence_text}
+                {Array.isArray(item.evidence_text) ? item.evidence_text.join("\n") : item.evidence_text}
               </DetailRow>
             ) : null}
 
             {item.warnings && item.warnings.length > 0 && (
               <div className="mt-4">
-                <p className="text-xs font-medium text-status-attention">검토 경고 (warnings)</p>
+                <p className="text-xs font-medium text-status-attention">검토 경고</p>
                 <ul className="mt-1 list-disc space-y-1 pl-4 text-sm text-foreground">
                   {item.warnings.map((w, i) => (
                     <li key={i}>{w}</li>
@@ -124,7 +114,7 @@ export function ItemDetailPanel({
             )}
 
             {item.verification != null && (
-              <DetailRow label="검증 (verification)">
+              <DetailRow label="검증">
                 <pre className="whitespace-pre-wrap break-words font-mono text-xs text-muted-foreground">
                   {typeof item.verification === "string"
                     ? item.verification
@@ -164,11 +154,7 @@ export function ItemDetailPanel({
                 <p className="text-sm text-muted-foreground">검색 결과가 없습니다.</p>
               ) : (
                 hits.map((hit, i) => (
-                  <div
-                    key={i}
-                    className="rounded-md border border-border bg-muted/40 p-2 text-sm"
-                    title="이 결과를 근거 후보로 참고하세요."
-                  >
+                  <div key={i} className="rounded-md border border-border bg-muted/40 p-2 text-sm">
                     <span className="font-semibold text-primary">p.{hit.page}</span>
                     <span className="text-foreground">: {hit.text}</span>
                   </div>
@@ -186,7 +172,7 @@ function DetailRow({ label, children }: { label: string; children: React.ReactNo
   return (
     <div className="mt-4">
       <p className="text-xs font-medium text-muted-foreground">{label}</p>
-      <div className="mt-1 text-sm leading-relaxed text-foreground">{children}</div>
+      <div className="mt-1 whitespace-pre-wrap text-sm leading-relaxed text-foreground">{children}</div>
     </div>
   )
 }

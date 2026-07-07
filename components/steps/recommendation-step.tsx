@@ -25,7 +25,9 @@ export function RecommendationStep({
 }) {
   const results = response.results ?? []
   const targets = results.filter((r: ReviewItem) => r.is_target !== false)
-  const feedbackCount = Object.values(feedback).filter((f) => f?.note || f?.corrected_evidence_pairs?.length).length
+  const feedbackCount = Object.values(feedback).filter(
+    (f) => f?.comment || f?.note || f?.corrected_evidence_pairs?.length,
+  ).length
   const emptyContent = targets.filter((r) => !((r.compliance_content ?? "").trim()))
 
   return (
@@ -33,7 +35,7 @@ export function RecommendationStep({
       <StepHeader
         step={5}
         title="권고 문장 생성"
-        description="확인 완료한 항목의 권고내용(compliance_content)을 검토하고 최종 컨펌합니다."
+        description="확인 완료된 항목의 권고내용을 검토하고 최종 컨펌합니다."
         actions={
           <Button variant="ghost" size="sm" onClick={onBack} className="gap-1.5">
             <ArrowLeft className="size-4" />
@@ -60,20 +62,17 @@ export function RecommendationStep({
             <div key={String(item.item_no)} className="rounded-lg border border-border bg-card p-4">
               <div className="flex items-center gap-2">
                 <span className="font-mono text-xs text-muted-foreground">#{item.item_no}</span>
-                <h3 className="text-sm font-semibold text-foreground">{item.law_name}</h3>
+                <h3 className="text-sm font-semibold text-foreground">{item.law_name || "법제도명 없음"}</h3>
                 <StatusBadge status={normalizeStatus(item)} />
               </div>
               <div className="mt-2 rounded-md bg-muted/50 p-3">
                 <div className="flex items-center justify-between">
-                  <p className="text-xs font-medium text-muted-foreground">권고내용 (compliance_content)</p>
-                  <CopyButton
-                    label="권고내용 복사"
-                    text={item.copy_texts?.compliance_content ?? item.compliance_content}
-                  />
+                  <p className="text-xs font-medium text-muted-foreground">권고내용</p>
+                  <CopyButton label="권고내용 복사" text={item.copy_texts?.compliance_content ?? item.compliance_content} />
                 </div>
                 <p
                   className={cn(
-                    "mt-1.5 text-sm leading-relaxed",
+                    "mt-1.5 whitespace-pre-wrap text-sm leading-relaxed",
                     (item.compliance_content ?? "").trim() ? "text-foreground" : "text-status-attention",
                   )}
                 >
@@ -88,7 +87,7 @@ export function RecommendationStep({
           {!allComplete && (
             <span className="mr-auto flex items-center gap-1.5 text-sm text-status-attention">
               <AlertTriangle className="size-4" />
-              all_items_complete=false: 최종 결과로 이동할 수 없습니다.
+              판단결과와 권고내용이 완성되어야 최종 결과로 이동할 수 있습니다.
             </span>
           )}
           {confirmed && (
@@ -98,7 +97,7 @@ export function RecommendationStep({
           )}
           <Button onClick={onConfirm} disabled={!allComplete} className="gap-1.5">
             <CheckCircle2 className="size-4" />
-            권고 문장 생성 최종 컨펌
+            권고 문장 생성 결과 컨펌
           </Button>
         </div>
       </div>
@@ -110,12 +109,7 @@ function Tile({ label, value, accent }: { label: string; value: number; accent?:
   return (
     <div className="rounded-lg border border-border bg-card p-4">
       <p className="text-xs text-muted-foreground">{label}</p>
-      <p
-        className={cn(
-          "mt-1 text-2xl font-semibold tabular-nums",
-          accent ? "text-status-attention" : "text-foreground",
-        )}
-      >
+      <p className={cn("mt-1 text-2xl font-semibold tabular-nums", accent ? "text-status-attention" : "text-foreground")}>
         {value}
       </p>
     </div>

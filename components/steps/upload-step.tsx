@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { StepHeader } from "@/components/step-header"
-import { submitReview } from "@/lib/api-client"
+import { parsePdf, checkReview } from "@/lib/api-client"
 import type { ReviewResponse } from "@/lib/types"
 import { cn } from "@/lib/utils"
 
@@ -19,6 +19,7 @@ export function UploadStep({ onComplete }: { onComplete: (r: ReviewResponse) => 
   const [items, setItems] = useState("")
   const [dragging, setDragging] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [status, setStatus] = useState("")
   const inputRef = useRef<HTMLInputElement>(null)
 
   function pickFile(f: File | null | undefined) {
@@ -37,13 +38,24 @@ export function UploadStep({ onComplete }: { onComplete: (r: ReviewResponse) => 
     }
     setLoading(true)
     try {
-      const res = await submitReview(file, items)
+      setStatus("PDF를 파싱하고 있습니다.")
+      const parsed = await parsePdf(file)
+      setStatus("법제도 검토와 검증을 진행하고 있습니다.")
+      const reviewed = await checkReview(String(parsed.document_id), items)
       toast.success("검토 요청이 완료되었습니다.")
-      onComplete(res)
+      onComplete({
+        ...reviewed,
+        parse_status: reviewed.parse_status || parsed.parse_status,
+        audit_score: reviewed.audit_score ?? parsed.audit_score,
+        audit_warnings: reviewed.audit_warnings || parsed.audit_warnings,
+        parse_needs_user_confirmation:
+          reviewed.parse_needs_user_confirmation ?? parsed.parse_needs_user_confirmation,
+      })
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "검토 요청에 실패했습니다.")
     } finally {
       setLoading(false)
+      setStatus("")
     }
   }
 
@@ -79,9 +91,9 @@ export function UploadStep({ onComplete }: { onComplete: (r: ReviewResponse) => 
           >
             <UploadCloud className="size-8 text-muted-foreground" />
             <p className="text-sm font-medium text-foreground">
-              PDF 파일을 여기에 끌어다 놓거나 클릭하여 선택
+              PDF 파일을 여기에 끌어오거나 클릭하여 선택
             </p>
-            <p className="text-xs text-muted-foreground">최대 1개의 RFP PDF 파일</p>
+            <p className="text-xs text-muted-foreground">RFP PDF 파일 1개를 업로드합니다.</p>
             <input
               ref={inputRef}
               type="file"
@@ -140,7 +152,7 @@ export function UploadStep({ onComplete }: { onComplete: (r: ReviewResponse) => 
           </Button>
           {loading && (
             <p className="mt-2 text-center text-xs text-muted-foreground">
-              문서 분량에 따라 시간이 걸릴 수 있습니다. 페이지를 벗어나지 마세요.
+              {status || "문서 분량에 따라 시간이 걸릴 수 있습니다. 페이지를 닫지 마세요."}
             </p>
           )}
         </div>

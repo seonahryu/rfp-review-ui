@@ -24,10 +24,9 @@ export function ParseStep({
   const warnings = response.audit_warnings ?? []
   const needsAttention = response.parse_needs_user_confirmation === true
   const score = response.audit_score
-  const lowScore = typeof score === "number" && score < 0.7
+  const lowScore = typeof score === "number" && score < 70
   const hasProblem = needsAttention || warnings.length > 0 || lowScore
-
-  const scorePct = typeof score === "number" ? Math.round((score <= 1 ? score * 100 : score)) : null
+  const scorePct = typeof score === "number" ? Math.round(score <= 1 ? score * 100 : score) : null
 
   return (
     <div>
@@ -46,70 +45,39 @@ export function ParseStep({
         <div
           className={cn(
             "flex items-start gap-3 rounded-lg border p-4",
-            needsAttention || lowScore
-              ? "border-status-attention/40 bg-status-attention-bg"
-              : "border-status-compliant/30 bg-status-compliant-bg",
+            hasProblem ? "border-status-attention/40 bg-status-attention-bg" : "border-status-compliant/30 bg-status-compliant-bg",
           )}
         >
-          {needsAttention || lowScore ? (
+          {hasProblem ? (
             <AlertTriangle className="mt-0.5 size-5 shrink-0 text-status-attention" />
           ) : (
             <CheckCircle2 className="mt-0.5 size-5 shrink-0 text-status-compliant" />
           )}
           <div>
             <p className="text-sm font-semibold text-foreground">
-              {needsAttention || lowScore
-                ? "파싱 결과에 사용자 확인이 필요합니다."
-                : "파싱이 정상적으로 완료되었습니다."}
+              {hasProblem ? "파싱 결과는 사용자 확인이 필요합니다." : "파싱이 정상적으로 완료되었습니다."}
             </p>
             <p className="mt-0.5 text-sm text-muted-foreground">
-              {needsAttention || lowScore
-                ? "신뢰도가 낮거나 경고가 있습니다. 아래 내용을 확인하세요."
-                : "특이 사항 없이 문서가 처리되었습니다."}
+              {hasProblem ? "경고 또는 낮은 신뢰도가 있습니다. 아래 내용을 확인하세요." : "문서가 처리되었습니다."}
             </p>
           </div>
         </div>
 
         <dl className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-3">
-          <div className="rounded-lg border border-border bg-card p-4">
-            <dt className="text-xs font-medium text-muted-foreground">파싱 상태 (parse_status)</dt>
-            <dd className="mt-1 text-sm font-semibold text-foreground">
-              {response.parse_status ?? "-"}
-            </dd>
-          </div>
-          <div className="rounded-lg border border-border bg-card p-4">
-            <dt className="text-xs font-medium text-muted-foreground">감사 점수 (audit_score)</dt>
-            <dd
-              className={cn(
-                "mt-1 text-sm font-semibold",
-                lowScore ? "text-status-attention" : "text-foreground",
-              )}
-            >
-              {scorePct !== null ? `${scorePct}%` : "-"}
-            </dd>
-          </div>
-          <div className="rounded-lg border border-border bg-card p-4">
-            <dt className="text-xs font-medium text-muted-foreground">문서 ID</dt>
-            <dd className="mt-1 truncate font-mono text-xs text-foreground">
-              {response.document_id}
-            </dd>
-          </div>
+          <InfoTile label="파싱 상태" value={response.parse_status ?? "-"} />
+          <InfoTile label="감사 점수" value={scorePct !== null ? `${scorePct}%` : "-"} accent={lowScore} />
+          <InfoTile label="문서 ID" value={String(response.document_id)} mono />
         </dl>
 
         <div className="mt-4 rounded-lg border border-border bg-card p-4">
           <p className="text-sm font-medium text-foreground">
-            감사 경고 (audit_warnings)
-            <span className="ml-2 text-xs text-muted-foreground">{warnings.length}건</span>
+            감사 경고 <span className="ml-2 text-xs text-muted-foreground">{warnings.length}건</span>
           </p>
           {warnings.length > 0 ? (
             <ul className="mt-3 space-y-2">
               {warnings.map((w, i) => (
-                <li
-                  key={i}
-                  className="flex items-start gap-2 rounded-md border border-status-attention/30 bg-status-attention-bg px-3 py-2 text-sm text-foreground"
-                >
-                  <AlertTriangle className="mt-0.5 size-4 shrink-0 text-status-attention" />
-                  <span>{w}</span>
+                <li key={i} className="rounded-md border border-status-attention/30 bg-status-attention-bg px-3 py-2 text-sm text-foreground">
+                  {typeof w === "string" ? w : JSON.stringify(w)}
                 </li>
               ))}
             </ul>
@@ -123,14 +91,11 @@ export function ParseStep({
             <Label htmlFor="parse-note" className="text-sm font-medium">
               수정 의견 입력
             </Label>
-            <p className="mt-0.5 text-xs text-muted-foreground">
-              파싱 결과에 문제가 있다고 판단되면 확인 내용을 기록해 두세요.
-            </p>
             <Textarea
               id="parse-note"
               value={note}
               onChange={(e) => setNote(e.target.value)}
-              placeholder="예: 12페이지 표가 누락된 것으로 보입니다."
+              placeholder="예: 특정 페이지 표가 누락된 것으로 보입니다."
               className="mt-2 min-h-24"
             />
           </div>
@@ -139,7 +104,7 @@ export function ParseStep({
         <div className="mt-6 flex items-center justify-end gap-2">
           {confirmed && (
             <span className="mr-auto inline-flex items-center gap-1.5 text-sm text-status-compliant">
-              <CheckCircle2 className="size-4" /> 확인 완료됨
+              <CheckCircle2 className="size-4" /> 확인 완료
             </span>
           )}
           <Button onClick={onConfirm} className="gap-1.5">
@@ -148,6 +113,17 @@ export function ParseStep({
           </Button>
         </div>
       </div>
+    </div>
+  )
+}
+
+function InfoTile({ label, value, accent, mono }: { label: string; value: string; accent?: boolean; mono?: boolean }) {
+  return (
+    <div className="rounded-lg border border-border bg-card p-4">
+      <dt className="text-xs font-medium text-muted-foreground">{label}</dt>
+      <dd className={cn("mt-1 text-sm font-semibold", accent ? "text-status-attention" : "text-foreground", mono && "font-mono text-xs")}>
+        {value}
+      </dd>
     </div>
   )
 }

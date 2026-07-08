@@ -68,7 +68,10 @@ export function RecommendationStep({
               <div className="mt-2 rounded-md bg-muted/50 p-3">
                 <div className="flex items-center justify-between">
                   <p className="text-xs font-medium text-muted-foreground">권고내용</p>
-                  <CopyButton label="권고내용 복사" text={item.copy_texts?.compliance_content ?? item.compliance_content} />
+                  <div className="flex flex-wrap items-center justify-end gap-1.5">
+                    <CopyButton label="법령준수여부 복사" text={item.copy_texts?.review_result ?? item.normalized_result} />
+                    <CopyButton label="권고내용 복사" text={item.copy_texts?.compliance_content ?? item.compliance_content} />
+                  </div>
                 </div>
                 <p
                   className={cn(

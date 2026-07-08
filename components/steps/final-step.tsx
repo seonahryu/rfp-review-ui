@@ -39,7 +39,7 @@ export function FinalStep({
               <tr className="border-b border-border bg-muted/60 text-left text-xs text-muted-foreground">
                 <th className="w-12 border-r border-border px-3 py-2.5 font-medium">번호</th>
                 <th className="border-r border-border px-3 py-2.5 font-medium">법령준수 개선권고 주요항목</th>
-                <th className="w-28 border-r border-border px-3 py-2.5 font-medium">검토결과</th>
+                <th className="w-28 border-r border-border px-3 py-2.5 font-medium">법령준수 여부</th>
                 <th className="border-r border-border px-3 py-2.5 font-medium">권고내용</th>
                 <th className="w-40 px-3 py-2.5 font-medium">복사</th>
               </tr>
@@ -65,7 +65,7 @@ export function FinalStep({
                     </td>
                     <td className="px-3 py-3">
                       <div className="flex flex-col gap-1.5">
-                        <CopyButton label="검토결과 복사" text={item.copy_texts?.review_result ?? item.normalized_result} />
+                        <CopyButton label="법령준수여부 복사" text={item.copy_texts?.review_result ?? item.normalized_result} />
                         <CopyButton label="권고내용 복사" text={item.copy_texts?.compliance_content ?? item.compliance_content} />
                       </div>
                     </td>

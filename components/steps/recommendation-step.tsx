@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button"
 import { StepHeader } from "@/components/step-header"
 import { StatusBadge } from "@/components/status-badge"
 import { CopyButton } from "@/components/copy-button"
-import { normalizeStatus, type ReviewItem, type ReviewResponse, type UserFeedback } from "@/lib/types"
+import { normalizeStatus, type ReviewResponse, type UserFeedback } from "@/lib/types"
 import { cn } from "@/lib/utils"
 
 export function RecommendationStep({
@@ -24,11 +24,11 @@ export function RecommendationStep({
   onBack: () => void
 }) {
   const results = response.results ?? []
-  const targets = results.filter((r: ReviewItem) => r.is_target !== false)
+  const displayItems = results
   const feedbackCount = Object.values(feedback).filter(
-    (f) => f?.comment || f?.note || f?.corrected_evidence_pairs?.length,
+    (f) => f?.comment || f?.note || f?.corrected_result || f?.corrected_evidence_pairs?.length,
   ).length
-  const emptyContent = targets.filter((r) => !((r.compliance_content ?? "").trim()))
+  const emptyContent = displayItems.filter((r) => !((r.compliance_content ?? "").trim()))
 
   return (
     <div>
@@ -45,7 +45,7 @@ export function RecommendationStep({
       />
       <div className="mx-auto max-w-4xl px-8 py-6">
         <div className="mb-4 grid grid-cols-3 gap-3">
-          <Tile label="대상 항목" value={targets.length} />
+          <Tile label="전체 항목" value={displayItems.length} />
           <Tile label="수정 의견 반영" value={feedbackCount} />
           <Tile label="권고내용 누락" value={emptyContent.length} accent={emptyContent.length > 0} />
         </div>
@@ -58,7 +58,7 @@ export function RecommendationStep({
         )}
 
         <div className="space-y-3">
-          {targets.map((item) => (
+          {displayItems.map((item) => (
             <div key={String(item.item_no)} className="rounded-lg border border-border bg-card p-4">
               <div className="flex items-center gap-2">
                 <span className="font-mono text-xs text-muted-foreground">#{item.item_no}</span>

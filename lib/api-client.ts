@@ -1,3 +1,4 @@
+import { BACKEND_API_URL } from "@/lib/backend"
 import type { ReviewItem, ReviewResponse, SearchHit, SearchResponse, UserFeedback } from "@/lib/types"
 
 async function parseJsonResponse<T>(res: Response, fallbackMessage: string): Promise<T> {
@@ -12,7 +13,7 @@ export async function parsePdf(file: File): Promise<ReviewResponse> {
   const form = new FormData()
   form.append("file", file)
 
-  const res = await fetch(`/api/parse`, {
+  const res = await fetch(`${BACKEND_API_URL}/api/parse`, {
     method: "POST",
     body: form,
   })
@@ -20,7 +21,7 @@ export async function parsePdf(file: File): Promise<ReviewResponse> {
 }
 
 export async function checkReview(documentId: string, items: string): Promise<ReviewResponse> {
-  const res = await fetch(`/api/review/check`, {
+  const res = await fetch(`${BACKEND_API_URL}/api/review/check`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -50,7 +51,7 @@ export async function generateRecommendations(
     user_feedback: feedback[String(item.item_no)] || item.user_feedback || null,
   }))
 
-  const res = await fetch(`/api/recommendations`, {
+  const res = await fetch(`${BACKEND_API_URL}/api/recommendations`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({

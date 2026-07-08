@@ -57,7 +57,7 @@ export async function generateRecommendations(
     user_feedback: feedback[String(item.item_no)] || item.user_feedback || null,
   }))
 
-  const res = await fetch(`${BACKEND_API_URL}/api/recommendations`, {
+  const res = await fetch("/api/recommendations", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -74,9 +74,7 @@ export async function submitReview(file: File, items: string): Promise<ReviewRes
 }
 
 export async function searchDocument(documentId: string, q: string): Promise<SearchHit[]> {
-  const res = await fetch(
-    `${BACKEND_API_URL}/api/documents/${encodeURIComponent(documentId)}/search?q=${encodeURIComponent(q)}`,
-  )
+  const res = await fetch(`/api/documents/${encodeURIComponent(documentId)}/search?q=${encodeURIComponent(q)}`)
   const data = await parseJsonResponse<SearchResponse>(res, "검색 요청에 실패했습니다.")
   return data.results || data.hits || data.matches || []
 }

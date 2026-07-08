@@ -12,6 +12,8 @@ export type CopyTexts = {
 export type ReviewItem = {
   item_no: number | string
   law_name?: string | null
+  target_text?: string
+  requirement_texts?: string[]
   review_result?: string
   normalized_result?: string
   final_status?: string
@@ -36,6 +38,7 @@ export type UserFeedback = {
   status?: string
   comment?: string
   note?: string
+  corrected_result?: string
   corrected_evidence_pairs?: EvidencePair[]
   resolved?: boolean
 }

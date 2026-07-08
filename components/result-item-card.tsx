@@ -10,11 +10,19 @@ import { StatusBadge, AttentionBadge } from "@/components/status-badge"
 import {
   attentionReasonText,
   normalizeStatus,
+  STATUS_LABEL,
   type EvidencePair,
   type ReviewItem,
   type UserFeedback,
 } from "@/lib/types"
 import { cn } from "@/lib/utils"
+
+const RESULT_OPTIONS = [
+  { value: "준수", className: "border-status-compliant/40 text-status-compliant bg-status-compliant-bg" },
+  { value: "미준수", className: "border-status-noncompliant/40 text-status-noncompliant bg-status-noncompliant-bg" },
+  { value: "보완필요", className: "border-status-revision/40 text-status-revision bg-status-revision-bg" },
+  { value: "해당없음", className: "border-status-na/40 text-status-na bg-status-na-bg" },
+] as const
 
 export function ResultItemCard({
   item,
@@ -38,6 +46,8 @@ export function ResultItemCard({
   const [pairs, setPairs] = useState<EvidencePair[]>(feedback?.corrected_evidence_pairs ?? [])
   const attention = item.user_action_required || item.needs_user_attention
   const status = normalizeStatus(item)
+  const initialResult = status === "unknown" ? "" : STATUS_LABEL[status]
+  const [correctedResult, setCorrectedResult] = useState(feedback?.corrected_result ?? initialResult)
   const confidencePct =
     typeof item.confidence === "number"
       ? Math.round(item.confidence <= 1 ? item.confidence * 100 : item.confidence)
@@ -60,6 +70,7 @@ export function ResultItemCard({
       status: "submitted",
       comment: note.trim(),
       note: note.trim(),
+      corrected_result: correctedResult,
       corrected_evidence_pairs: pairs.filter((p) => String(p.page ?? "").trim() || p.text.trim()),
       resolved: true,
     })
@@ -142,7 +153,30 @@ export function ResultItemCard({
             </div>
           )}
 
-          <Label className="text-sm font-medium">수정 의견</Label>
+          <div>
+            <Label className="text-sm font-medium">법령준수여부 수정</Label>
+            <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
+              {RESULT_OPTIONS.map((option) => {
+                const active = correctedResult === option.value
+                return (
+                  <button
+                    key={option.value}
+                    type="button"
+                    aria-pressed={active}
+                    onClick={() => setCorrectedResult(option.value)}
+                    className={cn(
+                      "h-9 rounded-md border px-2 text-sm font-medium transition-colors",
+                      active ? option.className : "border-border bg-background text-muted-foreground hover:bg-muted",
+                    )}
+                  >
+                    {option.value}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+
+          <Label className="mt-4 block text-sm font-medium">수정 의견</Label>
           <p className="mt-0.5 text-xs text-muted-foreground">
             페이지나 근거가 잘못되었다고 판단하면 의견을 남기고 아래에 수정 근거를 추가하세요.
           </p>

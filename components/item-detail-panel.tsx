@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { CheckCircle2, FileSearch, Loader2, Search } from "lucide-react"
+import { CheckCircle2, FileSearch, Loader2, Search, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Separator } from "@/components/ui/separator"
@@ -15,10 +15,12 @@ export function ItemDetailPanel({
   item,
   documentId,
   confirmed,
+  onClose,
 }: {
   item: ReviewItem | null
   documentId: string
   confirmed: boolean
+  onClose: () => void
 }) {
   const [query, setQuery] = useState("")
   const [hits, setHits] = useState<SearchHit[] | null>(null)
@@ -47,7 +49,12 @@ export function ItemDetailPanel({
   return (
     <aside className="flex w-[22rem] shrink-0 flex-col border-l border-border bg-card">
       <div className="border-b border-border px-5 py-3">
-        <h3 className="text-sm font-semibold text-foreground">항목 상세</h3>
+        <div className="flex items-center justify-between gap-3">
+          <h3 className="text-sm font-semibold text-foreground">항목 상세</h3>
+          <Button type="button" variant="ghost" size="icon" onClick={onClose} aria-label="항목 상세 닫기">
+            <X className="size-4" />
+          </Button>
+        </div>
       </div>
 
       <div className="flex-1 overflow-y-auto">
@@ -156,7 +163,10 @@ export function ItemDetailPanel({
                 hits.map((hit, i) => (
                   <div key={i} className="rounded-md border border-border bg-muted/40 p-2 text-sm">
                     <span className="font-semibold text-primary">p.{hit.page}</span>
-                    <span className="text-foreground">: {hit.text}</span>
+                    {hit.pdf_page != null && String(hit.pdf_page) !== String(hit.page) && (
+                      <span className="ml-1 text-xs text-muted-foreground">(PDF {hit.pdf_page})</span>
+                    )}
+                    <span className="text-foreground">: <HighlightedText text={hit.text} query={query} /></span>
                   </div>
                 ))
               )}
@@ -166,6 +176,30 @@ export function ItemDetailPanel({
       </div>
     </aside>
   )
+}
+
+function HighlightedText({ text, query }: { text: string; query: string }) {
+  const needle = query.trim()
+  if (!needle) return <>{text}</>
+  const lowerText = text.toLowerCase()
+  const lowerNeedle = needle.toLowerCase()
+  const parts: React.ReactNode[] = []
+  let cursor = 0
+  let index = lowerText.indexOf(lowerNeedle)
+
+  while (index >= 0) {
+    if (index > cursor) parts.push(text.slice(cursor, index))
+    parts.push(
+      <mark key={`${index}-${needle}`} className="rounded-sm bg-status-attention-bg px-0.5 font-semibold text-foreground">
+        {text.slice(index, index + needle.length)}
+      </mark>,
+    )
+    cursor = index + needle.length
+    index = lowerText.indexOf(lowerNeedle, cursor)
+  }
+
+  if (cursor < text.length) parts.push(text.slice(cursor))
+  return <>{parts}</>
 }
 
 function DetailRow({ label, children }: { label: string; children: React.ReactNode }) {

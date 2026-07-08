@@ -1,6 +1,6 @@
 "use client"
 
-import { useRef, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { FileText, Loader2, UploadCloud, X } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
@@ -20,15 +20,27 @@ export function UploadStep({ onComplete }: { onComplete: (r: ReviewResponse) => 
   const [dragging, setDragging] = useState(false)
   const [loading, setLoading] = useState(false)
   const [status, setStatus] = useState("")
+  const [pageCount, setPageCount] = useState<number | null>(null)
+  const [elapsedSeconds, setElapsedSeconds] = useState(0)
   const inputRef = useRef<HTMLInputElement>(null)
 
-  function pickFile(f: File | null | undefined) {
+  useEffect(() => {
+    if (!loading) {
+      setElapsedSeconds(0)
+      return
+    }
+    const timer = window.setInterval(() => setElapsedSeconds((v) => v + 1), 1000)
+    return () => window.clearInterval(timer)
+  }, [loading])
+
+  async function pickFile(f: File | null | undefined) {
     if (!f) return
     if (f.type !== "application/pdf" && !f.name.toLowerCase().endsWith(".pdf")) {
       toast.error("PDF 파일만 업로드할 수 있습니다.")
       return
     }
     setFile(f)
+    setPageCount(await estimatePdfPages(f))
   }
 
   async function handleSubmit() {
@@ -40,7 +52,7 @@ export function UploadStep({ onComplete }: { onComplete: (r: ReviewResponse) => 
     try {
       setStatus("PDF를 파싱하고 있습니다.")
       const parsed = await parsePdf(file)
-      setStatus("법제도 검토와 검증을 진행하고 있습니다.")
+      setStatus("법제도 검토를 진행하고 있습니다.")
       const reviewed = await checkReview(String(parsed.document_id), items)
       toast.success("검토 요청이 완료되었습니다.")
       onComplete({
@@ -111,10 +123,16 @@ export function UploadStep({ onComplete }: { onComplete: (r: ReviewResponse) => 
                 <span className="shrink-0 text-xs text-muted-foreground">
                   {(file.size / 1024 / 1024).toFixed(2)} MB
                 </span>
+                {pageCount != null && (
+                  <span className="shrink-0 text-xs text-muted-foreground">{pageCount}페이지</span>
+                )}
               </div>
               <button
                 type="button"
-                onClick={() => setFile(null)}
+                onClick={() => {
+                  setFile(null)
+                  setPageCount(null)
+                }}
                 disabled={loading}
                 className="text-muted-foreground hover:text-foreground"
                 aria-label="파일 제거"
@@ -151,12 +169,40 @@ export function UploadStep({ onComplete }: { onComplete: (r: ReviewResponse) => 
             )}
           </Button>
           {loading && (
-            <p className="mt-2 text-center text-xs text-muted-foreground">
-              {status || "문서 분량에 따라 시간이 걸릴 수 있습니다. 페이지를 닫지 마세요."}
-            </p>
+            <div className="mt-3 rounded-md border border-border bg-muted/40 px-3 py-2">
+              <div className="flex items-center justify-between gap-3 text-xs">
+                <span className="font-medium text-foreground">{status || "PDF를 처리하고 있습니다."}</span>
+                <span className="tabular-nums text-muted-foreground">{formatElapsed(elapsedSeconds)}</span>
+              </div>
+              <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-muted">
+                <div className="h-full w-1/3 animate-pulse rounded-full bg-primary" />
+              </div>
+              <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
+                {pageCount
+                  ? `PDF 전체 ${pageCount}페이지를 서버에서 파싱 중입니다. 문서 크기에 따라 시간이 오래 걸릴 수 있습니다.`
+                  : "문서 분량에 따라 시간이 걸릴 수 있습니다. 페이지 수를 읽는 중입니다."}
+              </p>
+            </div>
           )}
         </div>
       </div>
     </div>
   )
+}
+
+async function estimatePdfPages(file: File): Promise<number | null> {
+  try {
+    const buffer = await file.arrayBuffer()
+    const text = new TextDecoder("latin1").decode(buffer)
+    const matches = text.match(/\/Type\s*\/Page\b/g)
+    return matches?.length ?? null
+  } catch {
+    return null
+  }
+}
+
+function formatElapsed(seconds: number): string {
+  const minutes = Math.floor(seconds / 60)
+  const rest = seconds % 60
+  return `${minutes}:${String(rest).padStart(2, "0")}`
 }

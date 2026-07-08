@@ -72,6 +72,7 @@ export type ReviewResponse = {
 
 export type SearchHit = {
   page: number | string
+  pdf_page?: number | string
   text: string
   score?: number
 }

@@ -27,8 +27,8 @@ export function Console() {
   const [confirmedItems, setConfirmedItems] = useState<Record<string, boolean>>({})
   const [feedback, setFeedback] = useState<Record<string, UserFeedback>>({})
   const [recommendationConfirmed, setRecommendationConfirmed] = useState(false)
-  const [finalConfirmed, setFinalConfirmed] = useState(false)
   const [selectedKey, setSelectedKey] = useState<string | null>(null)
+  const [detailPanelOpen, setDetailPanelOpen] = useState(true)
   const [generatingRecommendations, setGeneratingRecommendations] = useState(false)
 
   const results = response?.results ?? []
@@ -59,10 +59,10 @@ export function Console() {
     setConfirmedItems({})
     setFeedback({})
     setRecommendationConfirmed(false)
-    setFinalConfirmed(false)
     setGeneratingRecommendations(false)
     const first = resp.results?.[0]
     setSelectedKey(first ? itemKey(first) : null)
+    setDetailPanelOpen(true)
     setCurrent("parse")
     setMaxReached("parse")
   }, [])
@@ -73,9 +73,9 @@ export function Console() {
     setConfirmedItems({})
     setFeedback({})
     setRecommendationConfirmed(false)
-    setFinalConfirmed(false)
     setGeneratingRecommendations(false)
     setSelectedKey(null)
+    setDetailPanelOpen(true)
     setCurrent("upload")
     setMaxReached("upload")
   }, [])
@@ -108,6 +108,7 @@ export function Console() {
       setResponse(next)
       const first = next.results?.[0]
       setSelectedKey(first ? itemKey(first) : null)
+      setDetailPanelOpen(true)
       advanceTo("recommendation")
       toast.success("권고 문장 생성이 완료되었습니다.")
     } catch (err) {
@@ -127,12 +128,11 @@ export function Console() {
     toast.success("권고 문장 생성 결과를 확인했습니다.")
   }, [allComplete, advanceTo])
 
-  const confirmFinal = useCallback(() => {
-    setFinalConfirmed(true)
-    toast.success("최종 결과 확인을 완료했습니다.")
-  }, [])
-
   const showDetailPanel = current === "results" || current === "recommendation" || current === "final"
+  const selectItem = useCallback((key: string) => {
+    setSelectedKey(key)
+    setDetailPanelOpen(true)
+  }, [])
 
   return (
     <div className="flex h-dvh w-full overflow-hidden bg-background text-foreground">
@@ -153,7 +153,7 @@ export function Console() {
               confirmedItems={confirmedItems}
               feedback={feedback}
               selectedKey={selectedKey}
-              onSelect={setSelectedKey}
+              onSelect={selectItem}
               onConfirmItem={confirmItem}
               onUnconfirmItem={unconfirmItem}
               allConfirmed={allConfirmed}
@@ -172,16 +172,17 @@ export function Console() {
             />
           )}
           {current === "final" && response && (
-            <FinalStep response={response} confirmed={finalConfirmed} onConfirm={confirmFinal} onReset={handleReset} />
+            <FinalStep response={response} onReset={handleReset} />
           )}
         </div>
       </main>
 
-      {showDetailPanel && response && (
+      {showDetailPanel && response && detailPanelOpen && (
         <ItemDetailPanel
           item={selectedItem}
           documentId={String(response.document_id)}
           confirmed={selectedItem ? Boolean(confirmedItems[itemKey(selectedItem)]) : false}
+          onClose={() => setDetailPanelOpen(false)}
         />
       )}
     </div>

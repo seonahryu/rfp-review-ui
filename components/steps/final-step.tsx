@@ -26,8 +26,8 @@ export function FinalStep({
         description="HWP 표에 붙여넣기 쉽도록 구성한 최종 검토 결과입니다."
       />
       <div className="mx-auto max-w-5xl px-8 py-6">
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-md border border-border bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
-          <p>
+        <div className="mb-4 flex flex-wrap items-center gap-2 rounded-md border border-border bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
+          <p className="leading-relaxed">
             <span className="font-medium text-foreground">전체 검토결과 복사</span>는 HWP 표의 법령준수 여부 열에 줄 단위로 붙여넣을 수 있습니다.
           </p>
           <CopyButton label="전체 검토결과 복사" text={response.review_result_column_text} variant="secondary" />

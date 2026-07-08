@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button"
 import { StepHeader } from "@/components/step-header"
 import { ResultItemCard } from "@/components/result-item-card"
 import { itemKey } from "@/components/console"
-import type { ReviewItem, ReviewResponse, UserFeedback } from "@/lib/types"
+import type { ReviewResponse, UserFeedback } from "@/lib/types"
 
 export function ResultsStep({
   response,
@@ -31,8 +31,7 @@ export function ResultsStep({
   onProceed: () => void
 }) {
   const results = response.results ?? []
-  const targets = results.filter((r: ReviewItem) => r.is_target !== false)
-  const confirmedCount = targets.filter((r) => confirmedItems[itemKey(r)]).length
+  const confirmedCount = results.filter((r) => confirmedItems[itemKey(r)]).length
 
   return (
     <div>
@@ -45,7 +44,7 @@ export function ResultsStep({
             <span className="text-sm text-muted-foreground">
               확인 <span className="font-semibold text-foreground tabular-nums">{confirmedCount}</span>
               {" / "}
-              {targets.length}
+              {results.length}
             </span>
             <Button onClick={onProceed} disabled={!allConfirmed || !canGenerate} className="gap-1.5">
               권고 문장 생성
@@ -57,12 +56,7 @@ export function ResultsStep({
       <div className="mx-auto max-w-4xl px-8 py-6">
         {!allConfirmed && (
           <p className="mb-4 rounded-md border border-status-attention/30 bg-status-attention-bg px-3 py-2 text-sm text-foreground">
-            확인하지 않은 항목이 있습니다. 모든 대상 항목을 확인해야 권고 문장 생성 단계로 넘어갈 수 있습니다.
-          </p>
-        )}
-        {allConfirmed && !canGenerate && (
-          <p className="mb-4 rounded-md border border-status-attention/30 bg-status-attention-bg px-3 py-2 text-sm text-foreground">
-            모든 항목을 확인했지만 백엔드의 권고 문장 생성 조건(can_generate_recommendations)이 충족되지 않았습니다.
+            확인하지 않은 항목이 있습니다. 모든 검토 항목을 확인해야 권고 문장 생성 단계로 넘어갈 수 있습니다.
           </p>
         )}
         {allConfirmed && canGenerate && (

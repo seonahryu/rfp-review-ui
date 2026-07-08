@@ -32,10 +32,10 @@ export function Console() {
   const [generatingRecommendations, setGeneratingRecommendations] = useState(false)
 
   const results = response?.results ?? []
-  const targetItems = useMemo(() => results.filter((r) => r.is_target !== false), [results])
+  const confirmableItems = results
   const allConfirmed = useMemo(
-    () => targetItems.length > 0 && targetItems.every((r) => confirmedItems[itemKey(r)]),
-    [targetItems, confirmedItems],
+    () => confirmableItems.length > 0 && confirmableItems.every((r) => confirmedItems[itemKey(r)]),
+    [confirmableItems, confirmedItems],
   )
   const canGenerate = allConfirmed && !generatingRecommendations
   const allComplete = response?.all_items_complete === true
@@ -133,6 +133,17 @@ export function Console() {
     setSelectedKey(key)
     setDetailPanelOpen(true)
   }, [])
+  const selectedIndex = selectedKey ? results.findIndex((r) => itemKey(r) === selectedKey) : -1
+  const selectRelativeItem = useCallback(
+    (offset: number) => {
+      if (results.length === 0) return
+      const baseIndex = selectedIndex >= 0 ? selectedIndex : 0
+      const nextIndex = Math.min(results.length - 1, Math.max(0, baseIndex + offset))
+      const next = results[nextIndex]
+      if (next) selectItem(itemKey(next))
+    },
+    [results, selectedIndex, selectItem],
+  )
 
   return (
     <div className="flex h-dvh w-full overflow-hidden bg-background text-foreground">
@@ -182,6 +193,10 @@ export function Console() {
           item={selectedItem}
           documentId={String(response.document_id)}
           confirmed={selectedItem ? Boolean(confirmedItems[itemKey(selectedItem)]) : false}
+          position={selectedIndex >= 0 ? selectedIndex + 1 : 0}
+          total={results.length}
+          onPrevious={() => selectRelativeItem(-1)}
+          onNext={() => selectRelativeItem(1)}
           onClose={() => setDetailPanelOpen(false)}
         />
       )}

@@ -1,5 +1,13 @@
 import { BACKEND_API_URL } from "@/lib/backend"
-import type { ReviewItem, ReviewResponse, SearchHit, SearchResponse, UserFeedback } from "@/lib/types"
+import type {
+  ParseJobStartResponse,
+  ParseJobStatusResponse,
+  ReviewItem,
+  ReviewResponse,
+  SearchHit,
+  SearchResponse,
+  UserFeedback,
+} from "@/lib/types"
 
 async function parseJsonResponse<T>(res: Response, fallbackMessage: string): Promise<T> {
   const data = await res.json().catch(() => ({}))
@@ -13,11 +21,28 @@ export async function parsePdf(file: File): Promise<ReviewResponse> {
   const form = new FormData()
   form.append("file", file)
 
-  const res = await fetch(`${BACKEND_API_URL}/api/parse`, {
+  const res = await fetch(`${BACKEND_API_URL}/api/parse/start`, {
     method: "POST",
     body: form,
   })
-  return parseJsonResponse<ReviewResponse>(res, "PDF 파싱 요청에 실패했습니다.")
+  const started = await parseJsonResponse<ParseJobStartResponse>(res, "PDF 파싱 시작 요청에 실패했습니다.")
+  return pollParseJob(started.job_id)
+}
+
+async function pollParseJob(jobId: string): Promise<ReviewResponse> {
+  const deadline = Date.now() + 45 * 60 * 1000
+
+  while (Date.now() < deadline) {
+    await new Promise((resolve) => setTimeout(resolve, 5000))
+    const res = await fetch(`${BACKEND_API_URL}/api/jobs/${encodeURIComponent(jobId)}`, {
+      cache: "no-store",
+    })
+    const job = await parseJsonResponse<ParseJobStatusResponse>(res, "PDF 파싱 상태 확인에 실패했습니다.")
+    if (job.status === "succeeded" && job.result) return job.result
+    if (job.status === "failed") throw new Error(job.error || "PDF 파싱 작업이 실패했습니다.")
+  }
+
+  throw new Error("PDF 파싱 시간이 너무 오래 걸립니다. 잠시 후 다시 시도해 주세요.")
 }
 
 export async function checkReview(documentId: string, items: string): Promise<ReviewResponse> {

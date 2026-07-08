@@ -70,6 +70,18 @@ export type ReviewResponse = {
   results: ReviewItem[]
 }
 
+export type ParseJobStartResponse = {
+  job_id: string
+  status: "queued" | "running" | "succeeded" | "failed"
+}
+
+export type ParseJobStatusResponse = {
+  job_id: string
+  status: "queued" | "running" | "succeeded" | "failed"
+  result?: ReviewResponse
+  error?: string
+}
+
 export type SearchHit = {
   page: number | string
   text: string

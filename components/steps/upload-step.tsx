@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { StepHeader } from "@/components/step-header"
-import { parsePdf, checkReview } from "@/lib/api-client"
+import { parsePdfInBrowserChunks, checkReview } from "@/lib/api-client"
 import type { ReviewResponse } from "@/lib/types"
 import { cn } from "@/lib/utils"
 
@@ -21,6 +21,7 @@ export function UploadStep({ onComplete }: { onComplete: (r: ReviewResponse) => 
   const [loading, setLoading] = useState(false)
   const [status, setStatus] = useState("")
   const [pageCount, setPageCount] = useState<number | null>(null)
+  const [parsedPages, setParsedPages] = useState(0)
   const [elapsedSeconds, setElapsedSeconds] = useState(0)
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -49,9 +50,18 @@ export function UploadStep({ onComplete }: { onComplete: (r: ReviewResponse) => 
       return
     }
     setLoading(true)
+    setParsedPages(0)
     try {
-      setStatus("PDF를 파싱하고 있습니다.")
-      const parsed = await parsePdf(file)
+      setStatus("PDF를 브라우저에서 페이지별로 나누고 있습니다.")
+      const parsed = await parsePdfInBrowserChunks(file, ({ completed, total, startedPage }) => {
+        setParsedPages(completed)
+        setPageCount(total)
+        setStatus(
+          startedPage
+            ? `${startedPage}쪽 파싱 시작 (${completed}/${total}페이지 완료)`
+            : `${completed}/${total}페이지 처리 완료`,
+        )
+      })
       setStatus("법제도 검토를 진행하고 있습니다.")
       const reviewed = await checkReview(String(parsed.document_id), items)
       toast.success("검토 요청이 완료되었습니다.")
@@ -68,6 +78,7 @@ export function UploadStep({ onComplete }: { onComplete: (r: ReviewResponse) => 
     } finally {
       setLoading(false)
       setStatus("")
+      setParsedPages(0)
     }
   }
 
@@ -175,11 +186,19 @@ export function UploadStep({ onComplete }: { onComplete: (r: ReviewResponse) => 
                 <span className="tabular-nums text-muted-foreground">{formatElapsed(elapsedSeconds)}</span>
               </div>
               <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-muted">
-                <div className="h-full w-1/3 animate-pulse rounded-full bg-primary" />
+                <div
+                  className="h-full rounded-full bg-primary transition-all"
+                  style={{
+                    width:
+                      loading && pageCount && parsedPages
+                        ? `${Math.max(4, Math.min(100, Math.round((parsedPages / pageCount) * 100)))}%`
+                        : "33%",
+                  }}
+                />
               </div>
               <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
                 {pageCount
-                  ? `PDF 전체 ${pageCount}페이지를 서버에서 파싱 중입니다. 문서 크기에 따라 시간이 오래 걸릴 수 있습니다.`
+                  ? `PDF 전체 ${pageCount}페이지 중 ${parsedPages || 0}페이지를 처리했습니다. 브라우저에서 1쪽씩 나누고 3개씩 동시에 파싱합니다.`
                   : "문서 분량에 따라 시간이 걸릴 수 있습니다. 페이지 수를 읽는 중입니다."}
               </p>
             </div>

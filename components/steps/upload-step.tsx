@@ -25,6 +25,7 @@ export function UploadStep({ onComplete }: { onComplete: (r: ReviewResponse) => 
   const [pageCount, setPageCount] = useState(0)
   const [parsedPages, setParsedPages] = useState(0)
   const [failedPages, setFailedPages] = useState<number[]>([])
+  const [selectedFailedPages, setSelectedFailedPages] = useState<number[]>([])
   const [pendingParsed, setPendingParsed] = useState<ReviewResponse | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -32,6 +33,7 @@ export function UploadStep({ onComplete }: { onComplete: (r: ReviewResponse) => 
     setPageCount(0)
     setParsedPages(0)
     setFailedPages([])
+    setSelectedFailedPages([])
     setPendingParsed(null)
   }
 
@@ -94,6 +96,7 @@ export function UploadStep({ onComplete }: { onComplete: (r: ReviewResponse) => 
       if (summary?.failed_pages?.length) {
         setPendingParsed(parsed)
         setFailedPages(summary.failed_pages)
+        setSelectedFailedPages(summary.failed_pages)
         setStatus("")
         toast.warning("일부 페이지 파싱에 실패했습니다. 실패 페이지를 확인한 뒤 계속 진행해 주세요.")
         return
@@ -107,13 +110,25 @@ export function UploadStep({ onComplete }: { onComplete: (r: ReviewResponse) => 
     }
   }
 
+  function toggleFailedPageSelection(pageNo: number) {
+    setSelectedFailedPages((current) =>
+      current.includes(pageNo)
+        ? current.filter((page) => page !== pageNo)
+        : [...current, pageNo].sort((a, b) => a - b),
+    )
+  }
+
   async function handleRetryFailedPages() {
     if (!file || !pendingParsed || failedPages.length === 0) return
+    if (selectedFailedPages.length === 0) {
+      toast.error("재파싱할 실패 페이지를 1개 이상 선택해 주세요.")
+      return
+    }
     setRetrying(true)
     setParsedPages(0)
     try {
-      const pagesToRetry = [...failedPages]
-      setStatus(`실패한 ${pagesToRetry.length}페이지를 다시 파싱하고 있습니다.`)
+      const pagesToRetry = [...selectedFailedPages]
+      setStatus(`선택한 ${pagesToRetry.length}페이지를 다시 파싱하고 있습니다.`)
       const reparsed = await retryFailedPdfPages(file, pendingParsed.document_id, pagesToRetry, (progress) => {
         setParsedPages(progress.completed)
         if (progress.failedPage) {
@@ -125,10 +140,24 @@ export function UploadStep({ onComplete }: { onComplete: (r: ReviewResponse) => 
         }
       })
 
-      const remainingFailed = reparsed.chunk_parse_summary?.failed_pages || []
-      setPendingParsed(reparsed)
+      const retryStillFailed = reparsed.chunk_parse_summary?.failed_pages || []
+      const unselectedFailed = failedPages.filter((page) => !pagesToRetry.includes(page))
+      const remainingFailed = [...new Set([...unselectedFailed, ...retryStillFailed])].sort((a, b) => a - b)
+      const totalPages = reparsed.chunk_parse_summary?.total_pages || pageCount
+      setPendingParsed({
+        ...reparsed,
+        chunk_parse_summary: {
+          total_pages: totalPages,
+          successful_pages: totalPages - remainingFailed.length,
+          failed_pages: remainingFailed,
+        },
+        parse_status: remainingFailed.length > 0 ? "warning" : reparsed.parse_status,
+        parse_needs_user_confirmation:
+          remainingFailed.length > 0 ? true : reparsed.parse_needs_user_confirmation,
+      })
       setFailedPages(remainingFailed)
-      setPageCount(reparsed.chunk_parse_summary?.total_pages || pageCount)
+      setSelectedFailedPages(remainingFailed)
+      setPageCount(totalPages)
       if (remainingFailed.length === 0) {
         toast.success("실패 페이지 재파싱이 완료되었습니다.")
       } else {
@@ -147,6 +176,8 @@ export function UploadStep({ onComplete }: { onComplete: (r: ReviewResponse) => 
   const busy = loading || reviewing || retrying
   const failedPageLabel = failedPages.map((page) => `p.${page}`).join(", ")
   const successfulPages = pageCount > 0 ? pageCount - failedPages.length : parsedPages
+  const allFailedPagesSelected =
+    failedPages.length > 0 && failedPages.every((page) => selectedFailedPages.includes(page))
 
   return (
     <div>
@@ -234,7 +265,7 @@ export function UploadStep({ onComplete }: { onComplete: (r: ReviewResponse) => 
             {busy ? (
               <>
                 <Loader2 className="size-4 animate-spin" />
-                {reviewing ? "검토 진행 중..." : "파싱 진행 중..."}
+                {reviewing ? "검토 진행 중..." : retrying ? "재파싱 진행 중..." : "파싱 진행 중..."}
               </>
             ) : (
               "검토 시작"
@@ -255,9 +286,49 @@ export function UploadStep({ onComplete }: { onComplete: (r: ReviewResponse) => 
                   </p>
                 </div>
               </div>
+
+              <div className="mt-3 rounded-md border border-amber-200 bg-white/60 p-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="text-xs font-semibold">재파싱할 페이지 선택</p>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setSelectedFailedPages(allFailedPagesSelected ? [] : [...failedPages])}
+                    disabled={retrying}
+                  >
+                    {allFailedPagesSelected ? "전체 해제" : "전체 선택"}
+                  </Button>
+                </div>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {failedPages.map((page) => (
+                    <label
+                      key={page}
+                      className="inline-flex cursor-pointer items-center gap-1.5 rounded-md border border-amber-300 bg-white px-2 py-1 text-xs font-medium"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={selectedFailedPages.includes(page)}
+                        onChange={() => toggleFailedPageSelection(page)}
+                        disabled={retrying}
+                        className="size-3.5"
+                      />
+                      p.{page}
+                    </label>
+                  ))}
+                </div>
+                <p className="mt-2 text-xs">선택한 페이지 {selectedFailedPages.length}개만 다시 파싱합니다.</p>
+              </div>
+
               <div className="mt-3 flex flex-wrap gap-2">
-                <Button type="button" variant="outline" size="sm" onClick={handleRetryFailedPages} disabled={retrying}>
-                  {retrying ? "실패 페이지 다시 파싱 중..." : "실패 페이지 다시 파싱"}
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={handleRetryFailedPages}
+                  disabled={retrying || selectedFailedPages.length === 0}
+                >
+                  {retrying ? "선택한 페이지 다시 파싱 중..." : "선택한 페이지 다시 파싱"}
                 </Button>
                 <Button type="button" size="sm" onClick={() => runReview(pendingParsed)}>
                   실패 페이지 제외하고 계속

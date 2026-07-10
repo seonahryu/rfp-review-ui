@@ -3,10 +3,34 @@ export type EvidencePair = {
   text: string
 }
 
+export type InternalAssessmentStatus = "명시" | "일부명시" | "미명시"
+export type InternalAssessmentOverrides = Record<string, InternalAssessmentStatus>
+
 export type CopyTexts = {
   review_result?: string
   compliance_content?: string
+  internal_assessment?: string
   [key: string]: string | undefined
+}
+
+export type DetailedAssessmentRow = {
+  no: string
+  title: string
+  content: string
+  explicit_status: string
+  matched_requirements?: string[]
+  missing_action?: string
+  evidence_pairs?: EvidencePair[]
+}
+
+export type DetailedAssessment = {
+  item_no: string
+  title: string
+  columns: string[]
+  rows: DetailedAssessmentRow[]
+  final_result: string
+  reason?: string
+  recommendation?: string
 }
 
 export type ReviewItem = {
@@ -27,6 +51,7 @@ export type ReviewItem = {
   warnings?: string[]
   verification?: unknown
   compliance_content?: string
+  detailed_assessment?: DetailedAssessment | null
   needs_user_attention?: boolean
   user_action_required?: boolean
   attention_reasons?: string[]
@@ -41,6 +66,7 @@ export type UserFeedback = {
   corrected_result?: string
   manual_compliance_content?: string
   corrected_evidence_pairs?: EvidencePair[]
+  internal_assessment_overrides?: InternalAssessmentOverrides
   resolved?: boolean
 }
 
@@ -64,6 +90,11 @@ export type ReviewResponse = {
   document_name?: string
   total_pages?: number
   parse_status?: string
+  chunk_parse_summary?: {
+    total_pages: number
+    successful_pages: number
+    failed_pages: number[]
+  }
   audit_score?: number
   audit_warnings?: unknown[]
   parse_needs_user_confirmation?: boolean
@@ -97,7 +128,7 @@ export function normalizeStatus(item: ReviewItem): StatusKey {
   if (item.is_target === false) return "na"
   if (/미준수|위반|non[-_ ]?compliant|noncompliant/i.test(raw)) return "noncompliant"
   if (/보완|수정|revision|needs?[-_ ]?revision/i.test(raw)) return "revision"
-  if (/해당\s?없음|해당없음|not[-_ ]?applicable|n\/?a/i.test(raw)) return "na"
+  if (/해당\s*없음|해당없음|not[-_ ]?applicable|n\/?a/i.test(raw)) return "na"
   if (/준수|적합|compliant|pass/i.test(raw)) return "compliant"
   return "unknown"
 }
@@ -107,14 +138,14 @@ export const STATUS_LABEL: Record<StatusKey, string> = {
   noncompliant: "미준수",
   revision: "보완필요",
   na: "해당없음",
-  unknown: "판단대기",
+  unknown: "판정대기",
 }
 
 export const ATTENTION_REASON_LABEL: Record<string, string> = {
   confidence_low: "신뢰도 낮음",
   evidence_missing: "근거 부족",
   review_warnings: "검토 경고 있음",
-  verification_requires_adjudication: "검증 단계에서 추가 판단 필요",
+  verification_requires_adjudication: "검증 단계 추가 판단 필요",
 }
 
 export function attentionReasonText(reason: string): string {

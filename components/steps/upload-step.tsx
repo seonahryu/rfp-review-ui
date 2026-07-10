@@ -1,47 +1,71 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
-import { FileText, Loader2, UploadCloud, X } from "lucide-react"
+import { useRef, useState } from "react"
+import { AlertTriangle, FileText, Loader2, UploadCloud, X } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { StepHeader } from "@/components/step-header"
-import { parsePdfInBrowserChunks, checkReview } from "@/lib/api-client"
+import { checkReview, parsePdfInBrowserChunks, retryFailedPdfPages } from "@/lib/api-client"
 import type { ReviewResponse } from "@/lib/types"
 import { cn } from "@/lib/utils"
 
 const ITEMS_HELP =
-  "입력하지 않으면 전체 18개 항목을 검토합니다. 일부 법제도 항목만 테스트하려면 해당 법제도 항목 번호를 1,2,3처럼 입력하세요."
+  "입력하지 않으면 전체 18개 항목을 검토합니다. 일부 항목만 테스트하려면 1,2,3처럼 번호를 입력하세요."
 
 export function UploadStep({ onComplete }: { onComplete: (r: ReviewResponse) => void }) {
   const [file, setFile] = useState<File | null>(null)
   const [items, setItems] = useState("")
   const [dragging, setDragging] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [reviewing, setReviewing] = useState(false)
+  const [retrying, setRetrying] = useState(false)
   const [status, setStatus] = useState("")
-  const [pageCount, setPageCount] = useState<number | null>(null)
+  const [pageCount, setPageCount] = useState(0)
   const [parsedPages, setParsedPages] = useState(0)
-  const [elapsedSeconds, setElapsedSeconds] = useState(0)
+  const [failedPages, setFailedPages] = useState<number[]>([])
+  const [pendingParsed, setPendingParsed] = useState<ReviewResponse | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
-  useEffect(() => {
-    if (!loading) {
-      setElapsedSeconds(0)
-      return
-    }
-    const timer = window.setInterval(() => setElapsedSeconds((v) => v + 1), 1000)
-    return () => window.clearInterval(timer)
-  }, [loading])
+  function resetParseState() {
+    setPageCount(0)
+    setParsedPages(0)
+    setFailedPages([])
+    setPendingParsed(null)
+  }
 
-  async function pickFile(f: File | null | undefined) {
+  function pickFile(f: File | null | undefined) {
     if (!f) return
     if (f.type !== "application/pdf" && !f.name.toLowerCase().endsWith(".pdf")) {
       toast.error("PDF 파일만 업로드할 수 있습니다.")
       return
     }
     setFile(f)
-    setPageCount(await estimatePdfPages(f))
+    resetParseState()
+  }
+
+  async function runReview(parsed: ReviewResponse) {
+    setReviewing(true)
+    try {
+      setStatus("파싱 결과를 기준으로 법제도 검토를 진행하고 있습니다.")
+      const reviewed = await checkReview(String(parsed.document_id), items)
+      toast.success("검토가 완료되었습니다.")
+      onComplete({
+        ...reviewed,
+        parse_status: reviewed.parse_status || parsed.parse_status,
+        audit_score: reviewed.audit_score ?? parsed.audit_score,
+        audit_warnings: reviewed.audit_warnings || parsed.audit_warnings,
+        parse_needs_user_confirmation:
+          reviewed.parse_needs_user_confirmation ?? parsed.parse_needs_user_confirmation,
+        chunk_parse_summary: parsed.chunk_parse_summary,
+      })
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "검토 요청에 실패했습니다.")
+    } finally {
+      setReviewing(false)
+      setStatus("")
+    }
   }
 
   async function handleSubmit() {
@@ -50,51 +74,93 @@ export function UploadStep({ onComplete }: { onComplete: (r: ReviewResponse) => 
       return
     }
     setLoading(true)
-    setParsedPages(0)
+    resetParseState()
     try {
-      setStatus("PDF를 브라우저에서 페이지별로 나누고 있습니다.")
-      const parsed = await parsePdfInBrowserChunks(file, ({ completed, total, startedPage }) => {
-        setParsedPages(completed)
-        setPageCount(total)
-        setStatus(
-          startedPage
-            ? `${startedPage}쪽 파싱 시작 (${completed}/${total}페이지 완료)`
-            : `${completed}/${total}페이지 처리 완료`,
-        )
+      setStatus("PDF를 1쪽씩 나누어 병렬 파싱하고 있습니다.")
+      const parsed = await parsePdfInBrowserChunks(file, (progress) => {
+        setPageCount(progress.total)
+        setParsedPages(progress.completed)
+        setFailedPages(progress.failedPages || [])
+        if (progress.failedPage) {
+          setStatus(`${progress.failedPage}쪽 파싱 실패 (${progress.completed}/${progress.total}페이지 처리)`)
+        } else if (progress.startedPage) {
+          setStatus(`${progress.startedPage}쪽 파싱 시작 (${progress.completed}/${progress.total}페이지 완료)`)
+        } else if (progress.currentPage) {
+          setStatus(`${progress.currentPage}쪽 처리 완료 (${progress.completed}/${progress.total}페이지 완료)`)
+        }
       })
-      setStatus("법제도 검토를 진행하고 있습니다.")
-      const reviewed = await checkReview(String(parsed.document_id), items)
-      toast.success("검토 요청이 완료되었습니다.")
-      onComplete({
-        ...reviewed,
-        parse_status: reviewed.parse_status || parsed.parse_status,
-        audit_score: reviewed.audit_score ?? parsed.audit_score,
-        audit_warnings: reviewed.audit_warnings || parsed.audit_warnings,
-        parse_needs_user_confirmation:
-          reviewed.parse_needs_user_confirmation ?? parsed.parse_needs_user_confirmation,
-      })
+
+      const summary = parsed.chunk_parse_summary
+      if (summary?.failed_pages?.length) {
+        setPendingParsed(parsed)
+        setFailedPages(summary.failed_pages)
+        setStatus("")
+        toast.warning("일부 페이지 파싱에 실패했습니다. 실패 페이지를 확인한 뒤 계속 진행해 주세요.")
+        return
+      }
+
+      await runReview(parsed)
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "검토 요청에 실패했습니다.")
     } finally {
       setLoading(false)
-      setStatus("")
-      setParsedPages(0)
     }
   }
 
+  async function handleRetryFailedPages() {
+    if (!file || !pendingParsed || failedPages.length === 0) return
+    setRetrying(true)
+    setParsedPages(0)
+    try {
+      const pagesToRetry = [...failedPages]
+      setStatus(`실패한 ${pagesToRetry.length}페이지를 다시 파싱하고 있습니다.`)
+      const reparsed = await retryFailedPdfPages(file, pendingParsed.document_id, pagesToRetry, (progress) => {
+        setParsedPages(progress.completed)
+        if (progress.failedPage) {
+          setStatus(`${progress.failedPage}쪽 재파싱 실패 (${progress.completed}/${progress.total}페이지 처리)`)
+        } else if (progress.startedPage) {
+          setStatus(`${progress.startedPage}쪽 재파싱 시작 (${progress.completed}/${progress.total}페이지 완료)`)
+        } else if (progress.currentPage) {
+          setStatus(`${progress.currentPage}쪽 재파싱 완료 (${progress.completed}/${progress.total}페이지 완료)`)
+        }
+      })
+
+      const remainingFailed = reparsed.chunk_parse_summary?.failed_pages || []
+      setPendingParsed(reparsed)
+      setFailedPages(remainingFailed)
+      setPageCount(reparsed.chunk_parse_summary?.total_pages || pageCount)
+      if (remainingFailed.length === 0) {
+        toast.success("실패 페이지 재파싱이 완료되었습니다.")
+      } else {
+        toast.warning("일부 페이지는 다시 파싱해도 실패했습니다. 원문 확인 후 계속할 수 있습니다.")
+      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "실패 페이지 재파싱에 실패했습니다.")
+    } finally {
+      setRetrying(false)
+      setParsedPages(0)
+      setStatus("")
+    }
+  }
+
+  const progressPercent = pageCount > 0 ? Math.round((parsedPages / pageCount) * 100) : 0
+  const busy = loading || reviewing || retrying
+  const failedPageLabel = failedPages.map((page) => `p.${page}`).join(", ")
+  const successfulPages = pageCount > 0 ? pageCount - failedPages.length : parsedPages
+
   return (
     <div>
-      <StepHeader step={1} title="업로드" description="RFP PDF를 업로드하고 검토를 시작합니다." />
+      <StepHeader step={1} title="업로드" description="RFP PDF를 업로드하면 바로 법제도 검토를 진행합니다." />
       <div className="mx-auto max-w-2xl px-8 py-8">
         <div className="rounded-lg border border-border bg-card p-6">
           <Label className="text-sm font-medium">RFP PDF 파일</Label>
           <div
             role="button"
             tabIndex={0}
-            aria-disabled={loading}
-            onClick={() => !loading && inputRef.current?.click()}
+            aria-disabled={busy}
+            onClick={() => !busy && inputRef.current?.click()}
             onKeyDown={(e) => {
-              if ((e.key === "Enter" || e.key === " ") && !loading) inputRef.current?.click()
+              if ((e.key === "Enter" || e.key === " ") && !busy) inputRef.current?.click()
             }}
             onDragOver={(e) => {
               e.preventDefault()
@@ -104,18 +170,16 @@ export function UploadStep({ onComplete }: { onComplete: (r: ReviewResponse) => 
             onDrop={(e) => {
               e.preventDefault()
               setDragging(false)
-              if (!loading) pickFile(e.dataTransfer.files?.[0])
+              if (!busy) pickFile(e.dataTransfer.files?.[0])
             }}
             className={cn(
               "mt-2 flex cursor-pointer flex-col items-center justify-center gap-2 rounded-md border-2 border-dashed px-6 py-10 text-center transition-colors",
               dragging ? "border-primary bg-accent" : "border-border hover:border-primary/50 hover:bg-muted/50",
-              loading && "pointer-events-none opacity-60",
+              busy && "pointer-events-none opacity-60",
             )}
           >
             <UploadCloud className="size-8 text-muted-foreground" />
-            <p className="text-sm font-medium text-foreground">
-              PDF 파일을 여기에 끌어오거나 클릭하여 선택
-            </p>
+            <p className="text-sm font-medium text-foreground">PDF 파일을 끌어오거나 클릭하여 선택</p>
             <p className="text-xs text-muted-foreground">RFP PDF 파일 1개를 업로드합니다.</p>
             <input
               ref={inputRef}
@@ -134,17 +198,14 @@ export function UploadStep({ onComplete }: { onComplete: (r: ReviewResponse) => 
                 <span className="shrink-0 text-xs text-muted-foreground">
                   {(file.size / 1024 / 1024).toFixed(2)} MB
                 </span>
-                {pageCount != null && (
-                  <span className="shrink-0 text-xs text-muted-foreground">{pageCount}페이지</span>
-                )}
               </div>
               <button
                 type="button"
                 onClick={() => {
                   setFile(null)
-                  setPageCount(null)
+                  resetParseState()
                 }}
-                disabled={loading}
+                disabled={busy}
                 className="text-muted-foreground hover:text-foreground"
                 aria-label="파일 제거"
               >
@@ -163,43 +224,72 @@ export function UploadStep({ onComplete }: { onComplete: (r: ReviewResponse) => 
               onChange={(e) => setItems(e.target.value)}
               placeholder="예: 1,2,3"
               inputMode="numeric"
-              disabled={loading}
+              disabled={busy}
               className="mt-2"
             />
             <p className="mt-2 text-xs leading-relaxed text-muted-foreground">{ITEMS_HELP}</p>
           </div>
 
-          <Button onClick={handleSubmit} disabled={loading || !file} className="mt-6 w-full">
-            {loading ? (
+          <Button onClick={handleSubmit} disabled={busy || !file} className="mt-6 w-full">
+            {busy ? (
               <>
                 <Loader2 className="size-4 animate-spin" />
-                검토 진행 중...
+                {reviewing ? "검토 진행 중..." : "파싱 진행 중..."}
               </>
             ) : (
               "검토 시작"
             )}
           </Button>
-          {loading && (
-            <div className="mt-3 rounded-md border border-border bg-muted/40 px-3 py-2">
-              <div className="flex items-center justify-between gap-3 text-xs">
-                <span className="font-medium text-foreground">{status || "PDF를 처리하고 있습니다."}</span>
-                <span className="tabular-nums text-muted-foreground">{formatElapsed(elapsedSeconds)}</span>
+
+          {pendingParsed && failedPages.length > 0 && (
+            <div className="mt-4 rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-950">
+              <div className="flex items-start gap-2">
+                <AlertTriangle className="mt-0.5 size-4 shrink-0" />
+                <div className="min-w-0">
+                  <p className="font-semibold">
+                    총 {pageCount}페이지 중 {successfulPages}페이지 파싱 성공, {failedPages.length}페이지 파싱 실패
+                    {failedPageLabel ? `: ${failedPageLabel}` : ""}
+                  </p>
+                  <p className="mt-1 text-xs leading-relaxed">
+                    실패 페이지는 검토 근거에서 제외될 수 있으므로 원문 확인이 필요합니다.
+                  </p>
+                </div>
               </div>
-              <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-muted">
-                <div
-                  className="h-full rounded-full bg-primary transition-all"
-                  style={{
-                    width:
-                      loading && pageCount && parsedPages
-                        ? `${Math.max(4, Math.min(100, Math.round((parsedPages / pageCount) * 100)))}%`
-                        : "33%",
-                  }}
-                />
+              <div className="mt-3 flex flex-wrap gap-2">
+                <Button type="button" variant="outline" size="sm" onClick={handleRetryFailedPages} disabled={retrying}>
+                  {retrying ? "실패 페이지 다시 파싱 중..." : "실패 페이지 다시 파싱"}
+                </Button>
+                <Button type="button" size="sm" onClick={() => runReview(pendingParsed)}>
+                  실패 페이지 제외하고 계속
+                </Button>
               </div>
-              <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
-                {pageCount
-                  ? `PDF 전체 ${pageCount}페이지 중 ${parsedPages || 0}페이지를 처리했습니다. 브라우저에서 1쪽씩 나누고 3개씩 동시에 파싱합니다.`
-                  : "문서 분량에 따라 시간이 걸릴 수 있습니다. 페이지 수를 읽는 중입니다."}
+            </div>
+          )}
+
+          {pendingParsed && failedPages.length === 0 && !loading && (
+            <div className="mt-4 rounded-md border border-emerald-300 bg-emerald-50 px-4 py-3 text-sm text-emerald-950">
+              <p className="font-semibold">총 {pageCount}페이지 파싱이 완료되었습니다.</p>
+              <p className="mt-1 text-xs leading-relaxed">
+                실패했던 페이지가 모두 재파싱되어 기존 파싱 결과에 반영되었습니다.
+              </p>
+              <Button type="button" size="sm" className="mt-3" onClick={() => runReview(pendingParsed)}>
+                검토 계속
+              </Button>
+            </div>
+          )}
+
+          {(loading || reviewing || retrying) && (
+            <div className="mt-3">
+              {pageCount > 0 && (
+                <div className="mb-2 h-2 overflow-hidden rounded-full bg-muted">
+                  <div
+                    className="h-full rounded-full bg-primary transition-all"
+                    style={{ width: `${progressPercent}%` }}
+                  />
+                </div>
+              )}
+              <p className="text-center text-xs text-muted-foreground">
+                {status || "문서 분량에 따라 시간이 걸릴 수 있습니다. 페이지를 닫지 마세요."}
               </p>
             </div>
           )}
@@ -207,21 +297,4 @@ export function UploadStep({ onComplete }: { onComplete: (r: ReviewResponse) => 
       </div>
     </div>
   )
-}
-
-async function estimatePdfPages(file: File): Promise<number | null> {
-  try {
-    const buffer = await file.arrayBuffer()
-    const text = new TextDecoder("latin1").decode(buffer)
-    const matches = text.match(/\/Type\s*\/Page\b/g)
-    return matches?.length ?? null
-  } catch {
-    return null
-  }
-}
-
-function formatElapsed(seconds: number): string {
-  const minutes = Math.floor(seconds / 60)
-  const rest = seconds % 60
-  return `${minutes}:${String(rest).padStart(2, "0")}`
 }

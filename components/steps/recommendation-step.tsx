@@ -96,7 +96,7 @@ export function RecommendationStep({
                       <CopyButton label="법령준수여부 복사" text={item.copy_texts?.review_result ?? item.normalized_result} />
                       <CopyButton label="권고내용 복사" text={item.copy_texts?.compliance_content ?? item.compliance_content} />
                       {item.detailed_assessment && (
-                        <CopyButton label="전체 명시 여부 복사" text={item.copy_texts?.internal_assessment ?? internalAssessmentCopyText(item)} />
+                        <CopyButton label="전체 명시 여부 복사" text={internalAssessmentCopyText(item)} />
                       )}
                     </div>
                   </div>
@@ -172,13 +172,7 @@ function DetailedAssessmentTable({ item }: { item: ReviewItem }) {
 function internalAssessmentCopyText(item: ReviewItem): string {
   const assessment = item.detailed_assessment
   if (!assessment) return ""
-  const lines = [`${item.item_no}. ${item.law_name || assessment.title}`, "", "구분\t내용\t명시 여부"]
-  for (const row of assessment.rows) {
-    lines.push(`${row.no}\t${row.title}\n${row.content}\t${row.explicit_status}`)
-  }
-  lines.push("", `최종 판단\t${assessment.final_result}`)
-  if (assessment.reason) lines.push(`판단 근거\t${assessment.reason}`)
-  return lines.join("\n")
+  return assessment.rows.map((row) => row.explicit_status || "").join("\n")
 }
 
 function Tile({ label, value, accent }: { label: string; value: number; accent?: boolean }) {

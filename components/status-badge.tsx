@@ -5,6 +5,7 @@ const STATUS_CLASS: Record<StatusKey, string> = {
   compliant: "bg-status-compliant-bg text-status-compliant border-status-compliant/30",
   noncompliant: "bg-status-noncompliant-bg text-status-noncompliant border-status-noncompliant/30",
   revision: "bg-status-revision-bg text-status-revision border-status-revision/40",
+  attention: "bg-status-attention-bg text-status-attention border-status-attention/40",
   na: "bg-status-na-bg text-status-na border-status-na/30",
   unknown: "bg-muted text-muted-foreground border-border",
 }
@@ -24,6 +25,7 @@ export function StatusBadge({ status, className }: { status: StatusKey; classNam
           "bg-status-compliant": status === "compliant",
           "bg-status-noncompliant": status === "noncompliant",
           "bg-status-revision": status === "revision",
+          "bg-status-attention": status === "attention",
           "bg-status-na": status === "na",
           "bg-muted-foreground": status === "unknown",
         })}

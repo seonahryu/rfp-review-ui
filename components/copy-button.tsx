@@ -25,7 +25,7 @@ export function CopyButton({ text, label, size = "sm", variant = "outline", clas
       return
     }
     try {
-      await navigator.clipboard.writeText(text as string)
+      await navigator.clipboard.writeText(toPlainText(text as string))
       setCopied(true)
       toast.success(`${label} 완료`)
       setTimeout(() => setCopied(false), 1500)
@@ -47,4 +47,14 @@ export function CopyButton({ text, label, size = "sm", variant = "outline", clas
       {label}
     </Button>
   )
+}
+
+function toPlainText(value: string): string {
+  return value
+    .replace(/<\/?[a-z][a-z0-9-]*(?:\s[^<>]*)?>/gi, "")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .trim()
 }

@@ -119,7 +119,7 @@ export type SearchResponse = {
   matches?: SearchHit[]
 }
 
-export type StatusKey = "compliant" | "noncompliant" | "revision" | "na" | "unknown"
+export type StatusKey = "compliant" | "noncompliant" | "revision" | "attention" | "na" | "unknown"
 
 export function normalizeStatus(item: ReviewItem): StatusKey {
   const raw = (item.normalized_result || item.final_status || item.review_result || "")
@@ -127,6 +127,7 @@ export function normalizeStatus(item: ReviewItem): StatusKey {
     .trim()
   if (!raw) return "unknown"
   if (item.is_target === false) return "na"
+  if (/확인\s*요망|확인\s*필요/i.test(raw)) return "attention"
   if (/미준수|위반|non[-_ ]?compliant|noncompliant/i.test(raw)) return "noncompliant"
   if (/보완|수정|revision|needs?[-_ ]?revision/i.test(raw)) return "revision"
   if (/해당\s*없음|해당없음|not[-_ ]?applicable|n\/?a/i.test(raw)) return "na"
@@ -138,6 +139,7 @@ export const STATUS_LABEL: Record<StatusKey, string> = {
   compliant: "준수",
   noncompliant: "미준수",
   revision: "보완필요",
+  attention: "확인요망",
   na: "해당없음",
   unknown: "판정대기",
 }

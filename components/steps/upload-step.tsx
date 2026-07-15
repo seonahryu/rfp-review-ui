@@ -50,7 +50,7 @@ export function UploadStep({ onComplete }: { onComplete: (r: ReviewResponse) => 
   async function runReview(parsed: ReviewResponse) {
     setReviewing(true)
     try {
-      setStatus("파싱 결과를 기준으로 법제도 검토를 진행하고 있습니다.")
+      setStatus("PDF 파싱 검증 중")
       const reviewed = await checkReview(String(parsed.document_id), items)
       toast.success("검토가 완료되었습니다.")
       onComplete({
@@ -265,7 +265,7 @@ export function UploadStep({ onComplete }: { onComplete: (r: ReviewResponse) => 
             {busy ? (
               <>
                 <Loader2 className="size-4 animate-spin" />
-                {reviewing ? "검토 진행 중..." : retrying ? "재파싱 진행 중..." : "파싱 진행 중..."}
+                {reviewing ? "PDF 파싱 검증 중" : retrying ? "PDF 파싱 검증 중" : "파싱 진행 중..."}
               </>
             ) : (
               "검토 시작"

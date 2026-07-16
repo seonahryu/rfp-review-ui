@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { StepHeader } from "@/components/step-header"
-import { checkReview, parsePdf, retryFailedPdfPages } from "@/lib/api-client"
+import { checkReview, parsePdfInBrowserChunks, retryFailedPdfPages } from "@/lib/api-client"
 import type { ReviewResponse } from "@/lib/types"
 import { cn } from "@/lib/utils"
 
@@ -78,19 +78,38 @@ export function UploadStep({ onComplete }: { onComplete: (r: ReviewResponse) => 
     setLoading(true)
     resetParseState()
     try {
-      setStatus("PDF 파싱 중입니다.")
-      const parsed = await parsePdf(file)
-      if (parsed.total_pages) {
-        setPageCount(parsed.total_pages)
-        setParsedPages(parsed.total_pages)
+      setStatus("PDF를 1쪽씩 나누어 병렬 파싱하고 있습니다.")
+      const parsed = await parsePdfInBrowserChunks(file, (progress) => {
+        setPageCount(progress.total)
+        setParsedPages(progress.completed)
+        setFailedPages(progress.failedPages || [])
+        if (progress.failedPage) {
+          setStatus(`${progress.failedPage}쪽 파싱 실패 (${progress.completed}/${progress.total}페이지 처리)`)
+        } else if (progress.startedPage) {
+          setStatus(`${progress.startedPage}쪽 파싱 시작 (${progress.completed}/${progress.total}페이지 완료)`)
+        } else if (progress.currentPage) {
+          setStatus(`${progress.currentPage}쪽 처리 완료 (${progress.completed}/${progress.total}페이지 완료)`)
+        }
+      })
+
+      const summary = parsed.chunk_parse_summary
+      if (summary?.failed_pages?.length) {
+        setPendingParsed(parsed)
+        setFailedPages(summary.failed_pages)
+        setSelectedFailedPages(summary.failed_pages)
+        setStatus("")
+        toast.warning("일부 페이지 파싱에 실패했습니다. 실패 페이지를 확인한 뒤 계속 진행해 주세요.")
+        return
       }
+
       await runReview(parsed)
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "PDF 파싱 요청에 실패했습니다.")
+      toast.error(err instanceof Error ? err.message : "검토 요청에 실패했습니다.")
     } finally {
       setLoading(false)
     }
   }
+
   function toggleFailedPageSelection(pageNo: number) {
     setSelectedFailedPages((current) =>
       current.includes(pageNo)

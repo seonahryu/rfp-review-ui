@@ -45,7 +45,11 @@ export function ResultItemCard({
   onUnconfirm: () => void
 }) {
   const [open, setOpen] = useState(false)
-  const [manualContent, setManualContent] = useState(feedback?.manual_compliance_content ?? "")
+  const originalRecommendation = item.compliance_content || item.recommendation || ""
+  const [manualContent, setManualContent] = useState(
+    feedback?.manual_compliance_content_edited ? feedback?.manual_compliance_content ?? "" : "",
+  )
+  const [manualContentEdited, setManualContentEdited] = useState(Boolean(feedback?.manual_compliance_content_edited))
   const status = normalizeStatus(item)
   const initialResult = status === "unknown" ? "" : STATUS_LABEL[status]
   const [correctedResult, setCorrectedResult] = useState(feedback?.corrected_result ?? initialResult)
@@ -73,7 +77,8 @@ export function ResultItemCard({
     onConfirm({
       status: "submitted",
       corrected_result: correctedResult,
-      manual_compliance_content: manualContent.trim(),
+      manual_compliance_content: manualContentEdited ? manualContent.trim() : "",
+      manual_compliance_content_edited: manualContentEdited,
       internal_assessment_overrides: internalOverrides,
       resolved: true,
     })
@@ -178,8 +183,9 @@ export function ResultItemCard({
                     aria-pressed={active}
                     onClick={() => {
                       setCorrectedResult(option.value)
-                      if (option.value === "해당없음" && !manualContent.trim()) {
+                      if (option.value === "해당없음" && !manualContentEdited && !manualContent.trim()) {
                         setManualContent("해당없음")
+                        setManualContentEdited(true)
                       }
                     }}
                     className={cn(
@@ -200,10 +206,18 @@ export function ResultItemCard({
           </p>
           <Textarea
             value={manualContent}
-            onChange={(e) => setManualContent(e.target.value)}
-            placeholder="예: 제안요청서에 해당 항목을 명시하시기 바랍니다."
+            onChange={(e) => {
+              setManualContent(e.target.value)
+              setManualContentEdited(true)
+            }}
+            placeholder={originalRecommendation || "예: 제안요청서에 해당 항목을 명시하시기 바랍니다."}
             className="mt-2 min-h-20"
           />
+          {originalRecommendation && !manualContentEdited && (
+            <p className="mt-1 whitespace-pre-wrap text-xs leading-relaxed text-muted-foreground/70">
+              수정 전 원본: {originalRecommendation}
+            </p>
+          )}
 
           <div className="mt-4 flex justify-end gap-2">
             {confirmed && (

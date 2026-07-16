@@ -118,7 +118,7 @@ export function ItemDetailPanel({
                 <p className="text-xs font-medium text-muted-foreground">준수 항목</p>
                 <ul className="mt-2 space-y-2">
                   {item.requirement_texts.map((requirement, i) => (
-                    <li key={i} className="rounded-md border border-border bg-muted/40 p-2 text-sm leading-relaxed text-foreground">
+                    <li key={i} className="whitespace-pre-wrap rounded-md border border-border bg-muted/40 p-2 text-sm leading-relaxed text-foreground">
                       {requirement}
                     </li>
                   ))}

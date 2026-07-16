@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button"
 import { StepHeader } from "@/components/step-header"
 import { StatusBadge } from "@/components/status-badge"
 import { CopyButton } from "@/components/copy-button"
-import { normalizeStatus, type ReviewItem, type ReviewResponse, type UserFeedback } from "@/lib/types"
+import { normalizeStatus, STATUS_LABEL, type ReviewItem, type ReviewResponse, type UserFeedback } from "@/lib/types"
 import { cn } from "@/lib/utils"
 
 export function RecommendationStep({
@@ -93,7 +93,7 @@ export function RecommendationStep({
                   <div className="flex items-center justify-between">
                     <p className="text-xs font-medium text-muted-foreground">권고내용</p>
                     <div className="flex flex-wrap items-center justify-end gap-1.5" onClick={(e) => e.stopPropagation()}>
-                      <CopyButton label="법령준수여부 복사" text={item.copy_texts?.review_result ?? item.normalized_result} />
+                      <CopyButton label="법령준수여부 포함 권고내용 제목 복사" text={complianceTitleCopyText(item)} />
                       <CopyButton label="권고내용 복사" text={item.copy_texts?.compliance_content ?? item.compliance_content} />
                       {item.detailed_assessment && (
                         <CopyButton label="전체 명시 여부 복사" text={internalAssessmentCopyText(item)} />
@@ -173,6 +173,12 @@ function internalAssessmentCopyText(item: ReviewItem): string {
   const assessment = item.detailed_assessment
   if (!assessment) return ""
   return assessment.rows.map((row) => row.explicit_status || "").join("\n")
+}
+
+function complianceTitleCopyText(item: ReviewItem): string {
+  const status = item.normalized_result || STATUS_LABEL[normalizeStatus(item)]
+  const title = item.law_name || "법제도명 없음"
+  return `[${status}] ${item.item_no}. ${title}`
 }
 
 function Tile({ label, value, accent }: { label: string; value: number; accent?: boolean }) {

@@ -65,6 +65,7 @@ export type UserFeedback = {
   note?: string
   corrected_result?: string
   manual_compliance_content?: string
+  manual_compliance_content_edited?: boolean
   corrected_evidence_pairs?: EvidencePair[]
   internal_assessment_overrides?: InternalAssessmentOverrides
   resolved?: boolean

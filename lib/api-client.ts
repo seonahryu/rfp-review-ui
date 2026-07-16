@@ -313,7 +313,7 @@ export async function generateRecommendations(
 }
 
 export async function submitReview(file: File, items: string): Promise<ReviewResponse> {
-  const parsed = await parsePdfInBrowserChunks(file)
+  const parsed = await parsePdf(file)
   return checkReview(String(parsed.document_id), items)
 }
 

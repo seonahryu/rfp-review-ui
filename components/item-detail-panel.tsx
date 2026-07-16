@@ -281,10 +281,7 @@ function DetailedAssessmentTable({ item }: { item: ReviewItem }) {
                   <div className="font-medium">{row.title}</div>
                   <div className="mt-1 leading-relaxed text-muted-foreground">{row.content}</div>
                 </td>
-                <td className="border-t border-border px-2 py-2 font-semibold text-foreground">
-                  {row.explicit_status}
-                  <EvidencePageHint row={row} />
-                </td>
+                <td className="border-t border-border px-2 py-2 font-semibold text-foreground">{row.explicit_status}</td>
               </tr>
             ))}
           </tbody>
@@ -293,12 +290,6 @@ function DetailedAssessmentTable({ item }: { item: ReviewItem }) {
       {assessment.reason && <p className="mt-2 text-xs leading-relaxed text-muted-foreground">{assessment.reason}</p>}
     </div>
   )
-}
-
-function EvidencePageHint({ row }: { row: NonNullable<ReviewItem["detailed_assessment"]>["rows"][number] }) {
-  const pages = [...new Set((row.evidence_pairs ?? []).map((pair) => pair.page).filter(Boolean))]
-  if (pages.length === 0) return null
-  return <span className="mt-0.5 block text-[11px] font-normal text-muted-foreground">p.{pages.join(", p.")}</span>
 }
 
 function DetailRow({ label, children }: { label: string; children: React.ReactNode }) {

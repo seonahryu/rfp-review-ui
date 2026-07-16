@@ -65,7 +65,7 @@ export function FinalStep({
                     <div className="flex flex-col gap-1.5">
                       <CopyButton label="법령준수여부 복사" text={item.copy_texts?.review_result ?? item.normalized_result} />
                       <CopyButton label="권고내용 복사" text={item.copy_texts?.compliance_content ?? item.compliance_content} />
-                      {item.detailed_assessment && (
+                      {item.detailed_assessment && ["5", "6"].includes(String(item.item_no)) && (
                         <CopyButton label="전체 명시 여부 복사" text={internalAssessmentCopyText(item)} />
                       )}
                     </div>
@@ -118,7 +118,10 @@ function DetailedAssessmentTable({ item }: { item: ReviewItem }) {
                 <p className="font-medium">{row.title}</p>
                 <p className="mt-1 leading-relaxed text-muted-foreground">{row.content}</p>
               </td>
-              <td className="border border-border px-2 py-1.5 text-center font-semibold text-foreground">{row.explicit_status}</td>
+              <td className="border border-border px-2 py-1.5 text-center font-semibold text-foreground">
+                {row.explicit_status}
+                <EvidencePageHint row={row} />
+              </td>
             </tr>
           ))}
         </tbody>
@@ -128,6 +131,12 @@ function DetailedAssessmentTable({ item }: { item: ReviewItem }) {
       </p>
     </div>
   )
+}
+
+function EvidencePageHint({ row }: { row: NonNullable<ReviewItem["detailed_assessment"]>["rows"][number] }) {
+  const pages = [...new Set((row.evidence_pairs ?? []).map((pair) => pair.page).filter(Boolean))]
+  if (pages.length === 0) return null
+  return <span className="mt-0.5 block text-[11px] font-normal text-muted-foreground">p.{pages.join(", p.")}</span>
 }
 
 function internalAssessmentCopyText(item: ReviewItem): string {

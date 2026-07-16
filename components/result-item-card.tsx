@@ -47,9 +47,8 @@ export function ResultItemCard({
   const [open, setOpen] = useState(false)
   const originalRecommendation = item.compliance_content || item.recommendation || ""
   const [manualContent, setManualContent] = useState(
-    feedback?.manual_compliance_content_edited ? feedback?.manual_compliance_content ?? "" : "",
+    feedback?.manual_compliance_content_edited ? feedback?.manual_compliance_content ?? "" : originalRecommendation,
   )
-  const [manualContentEdited, setManualContentEdited] = useState(Boolean(feedback?.manual_compliance_content_edited))
   const status = normalizeStatus(item)
   const initialResult = status === "unknown" ? "" : STATUS_LABEL[status]
   const [correctedResult, setCorrectedResult] = useState(feedback?.corrected_result ?? initialResult)
@@ -74,10 +73,11 @@ export function ResultItemCard({
   }, [item.detailed_assessment, internalOverrides])
 
   function handleConfirm() {
+    const manualContentEdited = manualContent !== originalRecommendation
     onConfirm({
       status: "submitted",
       corrected_result: correctedResult,
-      manual_compliance_content: manualContentEdited ? manualContent.trim() : "",
+      manual_compliance_content: manualContent.trim(),
       manual_compliance_content_edited: manualContentEdited,
       internal_assessment_overrides: internalOverrides,
       resolved: true,
@@ -183,9 +183,8 @@ export function ResultItemCard({
                     aria-pressed={active}
                     onClick={() => {
                       setCorrectedResult(option.value)
-                      if (option.value === "해당없음" && !manualContentEdited && !manualContent.trim()) {
+                      if (option.value === "해당없음" && manualContent === originalRecommendation) {
                         setManualContent("해당없음")
-                        setManualContentEdited(true)
                       }
                     }}
                     className={cn(
@@ -204,20 +203,11 @@ export function ResultItemCard({
           <p className="mt-0.5 text-xs text-muted-foreground">
             입력하면 권고 문장 생성 단계에서 자동 생성 권고내용보다 우선 반영됩니다.
           </p>
-          <Textarea
-            value={manualContent}
-            onChange={(e) => {
-              setManualContent(e.target.value)
-              setManualContentEdited(true)
-            }}
-            placeholder={originalRecommendation || "예: 제안요청서에 해당 항목을 명시하시기 바랍니다."}
-            className="mt-2 min-h-20"
+          <RecommendationEditor
+            originalText={originalRecommendation}
+            currentText={manualContent}
+            onChange={setManualContent}
           />
-          {originalRecommendation && !manualContentEdited && (
-            <p className="mt-1 whitespace-pre-wrap text-xs leading-relaxed text-muted-foreground/70">
-              수정 전 원본: {originalRecommendation}
-            </p>
-          )}
 
           <div className="mt-4 flex justify-end gap-2">
             {confirmed && (
@@ -232,6 +222,29 @@ export function ResultItemCard({
         </div>
       )}
     </div>
+  )
+}
+
+function RecommendationEditor({
+  originalText,
+  currentText,
+  onChange,
+}: {
+  originalText: string
+  currentText: string
+  onChange: (value: string) => void
+}) {
+  const isEdited = currentText !== originalText
+  return (
+    <Textarea
+      value={currentText}
+      onChange={(e) => onChange(e.target.value)}
+      placeholder="예: 제안요청서에 해당 항목을 명시하시기 바랍니다."
+      className={cn(
+        "mt-2 min-h-20 whitespace-pre-wrap",
+        !isEdited && originalText && "text-muted-foreground",
+      )}
+    />
   )
 }
 
@@ -260,7 +273,10 @@ function InternalAssessmentTable({
                 <p className="font-medium">{row.title}</p>
                 <p className="mt-1 leading-relaxed text-muted-foreground">{row.content}</p>
               </td>
-              <td className="border border-border px-2 py-1.5 text-center font-semibold text-foreground">{row.explicit_status}</td>
+              <td className="border border-border px-2 py-1.5 text-center font-semibold text-foreground">
+                {row.explicit_status}
+                <EvidencePageHint row={row} />
+              </td>
             </tr>
           ))}
         </tbody>
@@ -270,6 +286,12 @@ function InternalAssessmentTable({
       </p>
     </div>
   )
+}
+
+function EvidencePageHint({ row }: { row: NonNullable<ReviewItem["detailed_assessment"]>["rows"][number] }) {
+  const pages = [...new Set((row.evidence_pairs ?? []).map((pair) => pair.page).filter(Boolean))]
+  if (pages.length === 0) return null
+  return <span className="mt-0.5 block text-[11px] font-normal text-muted-foreground">p.{pages.join(", p.")}</span>
 }
 
 function EditableInternalAssessmentTable({

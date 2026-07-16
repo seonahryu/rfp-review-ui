@@ -26,26 +26,6 @@ export type ChunkParseProgress = {
   failedPages?: number[]
 }
 
-export type ParseProgress = {
-  completed: number
-  total: number
-  currentPage?: number | null
-  status?: string
-}
-
-type ParseJobResponse = {
-  job_id: string
-  document_id: number | string
-  total_pages: number
-  status: string
-  processed_pages: number
-  failed_pages: number
-  current_page?: number | null
-  error?: string
-  is_terminal?: boolean
-  document?: ReviewResponse
-}
-
 async function parseJsonResponse<T>(res: Response, fallbackMessage: string): Promise<T> {
   const data = await res.json().catch(() => ({}))
   if (!res.ok) {
@@ -136,55 +116,18 @@ function failedParsedPage(pageNo: number, reason: string): ParsedPage {
   }
 }
 
-export async function parsePdf(file: File, onProgress?: (progress: ParseProgress) => void): Promise<ReviewResponse> {
+export async function parsePdf(file: File): Promise<ReviewResponse> {
   const form = new FormData()
   form.append("file", file)
 
   try {
-    const res = await fetch(`${BACKEND_API_URL}/api/parse/jobs`, {
+    const res = await fetch(`${BACKEND_API_URL}/api/parse`, {
       method: "POST",
       body: form,
     })
-    const started = await parseJsonResponse<ParseJobResponse>(res, "PDF parse job creation failed.")
-    if (!started.job_id) {
-      throw new Error("PDF parse job id was not returned.")
-    }
-
-    onProgress?.({
-      completed: started.processed_pages || 0,
-      total: started.total_pages || 0,
-      currentPage: started.current_page,
-      status: started.status,
-    })
-
-    const deadline = Date.now() + 45 * 60 * 1000
-    while (Date.now() < deadline) {
-      await sleep(2500)
-      const statusRes = await fetch(`${BACKEND_API_URL}/api/parse/jobs/${encodeURIComponent(started.job_id)}`, {
-        cache: "no-store",
-      })
-      const job = await parseJsonResponse<ParseJobResponse>(statusRes, "PDF parse job status check failed.")
-      onProgress?.({
-        completed: job.processed_pages || 0,
-        total: job.total_pages || 0,
-        currentPage: job.current_page,
-        status: job.status,
-      })
-
-      if (job.status === "succeeded") {
-        if (!job.document) {
-          throw new Error("PDF parsing finished but no document result was returned.")
-        }
-        return job.document
-      }
-      if (job.status === "failed" || job.status === "canceled") {
-        throw new Error(job.error || "PDF parse job failed.")
-      }
-    }
-
-    throw new Error("PDF parsing is taking too long. Please try again later.")
+    return parseJsonResponse<ReviewResponse>(res, "PDF 파싱 요청에 실패했습니다.")
   } catch (err) {
-    throw parseNetworkError(err, "PDF parse request failed.")
+    throw parseNetworkError(err, "PDF 파싱 요청에 실패했습니다.")
   }
 }
 
@@ -370,7 +313,7 @@ export async function generateRecommendations(
 }
 
 export async function submitReview(file: File, items: string): Promise<ReviewResponse> {
-  const parsed = await parsePdf(file)
+  const parsed = await parsePdfInBrowserChunks(file)
   return checkReview(String(parsed.document_id), items)
 }
 
